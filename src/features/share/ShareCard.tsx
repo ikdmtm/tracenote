@@ -15,7 +15,7 @@ const W = 1080 * SCALE;
 const H = 1920 * SCALE;
 
 const SAFE_TOP = H * 0.14;
-const SAFE_BOTTOM = H * 0.14;
+const SAFE_BOTTOM = H * 0.06;
 
 const STAYS_PER_FIRST_PAGE = 7;
 const STAYS_PER_NEXT_PAGE = 10;
