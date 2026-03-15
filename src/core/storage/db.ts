@@ -25,6 +25,7 @@ async function seedDefaults(db: SQLiteDatabase): Promise<void> {
   const defaults: Record<string, string> = {
     day_end_time: DIARY.DEFAULT_DAY_END_TIME,
     generation_time: DIARY.DEFAULT_GENERATION_TIME,
+    exclude_screenshots: "true",
   };
 
   for (const [key, value] of Object.entries(defaults)) {

@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
+import { getSetting } from "@/core/storage/settingsRepo";
 import { detectStays } from "@/core/engine/stayDetector";
 import { enrichStays } from "@/core/engine/enrichService";
 import { matchPhotosForStays } from "@/core/photos/photoMatcher";
@@ -40,9 +41,9 @@ export async function runStayDetection(
   const insertedStays = await getStaysByDay(db, startTs, endTs);
   await enrichStays(db, insertedStays);
 
-  // Auto-match photos from camera roll
   try {
-    const photoMatches = await matchPhotosForStays(insertedStays);
+    const exclScreenshots = (await getSetting(db, "exclude_screenshots")) !== "false";
+    const photoMatches = await matchPhotosForStays(insertedStays, { excludeScreenshots: exclScreenshots });
     for (const [stayId, photos] of photoMatches) {
       await syncStayPhotos(db, stayId, photos);
     }

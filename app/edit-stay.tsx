@@ -21,6 +21,7 @@ import { getStayById, updateStay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId, insertStayPhoto, deleteStayPhoto } from "@/core/storage/stayPhotoRepo";
 import { enrichStay } from "@/core/engine/enrichService";
 import { matchPhotosForStay } from "@/core/photos/photoMatcher";
+import { getSetting } from "@/core/storage/settingsRepo";
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -134,7 +135,8 @@ export default function EditStayScreen() {
   const handleReMatchPhotos = useCallback(async () => {
     if (!stay) return;
     try {
-      const matched = await matchPhotosForStay(stay);
+      const exclScreenshots = (await getSetting(db, "exclude_screenshots")) !== "false";
+      const matched = await matchPhotosForStay(stay, { excludeScreenshots: exclScreenshots });
       const existingAssetIds = new Set(photos.map((p) => p.asset_id));
       let added = 0;
       for (const m of matched) {

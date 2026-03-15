@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -103,12 +104,15 @@ export default function SettingsScreen() {
   const router = useRouter();
 
   const [dayEndTime, setDayEndTime] = useState<string>("03:00");
+  const [excludeScreenshots, setExcludeScreenshots] = useState(true);
   const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
 
   useEffect(() => {
     (async () => {
       const de = await getSetting(db, "day_end_time");
       if (de) setDayEndTime(de);
+      const es = await getSetting(db, "exclude_screenshots");
+      setExcludeScreenshots(es !== "false");
     })();
   }, [db]);
 
@@ -178,6 +182,24 @@ export default function SettingsScreen() {
                 <Text style={[styles.permBadgeText, { color: "#3b82f6" }]}>許可する</Text>
               </Pressable>
             )}
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.menuRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>スクリーンショットを除外</Text>
+              <Text style={styles.settingDescription}>
+                写真マッチングからスクショを除外します
+              </Text>
+            </View>
+            <Switch
+              value={excludeScreenshots}
+              onValueChange={async (val) => {
+                setExcludeScreenshots(val);
+                await setSetting(db, "exclude_screenshots", val ? "true" : "false");
+              }}
+              trackColor={{ false: "#e2e8f0", true: "#93c5fd" }}
+              thumbColor={excludeScreenshots ? "#3b82f6" : "#f4f4f5"}
+            />
           </View>
         </View>
       </View>

@@ -20,12 +20,17 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
 
 type MatchedPhoto = Omit<StayPhoto, "id">;
 
+export type PhotoMatchOptions = {
+  excludeScreenshots?: boolean;
+};
+
 /**
  * Find photos from camera roll that match a Stay's time window.
  * First filters by time, then checks GPS via getAssetInfoAsync for location scoring.
  */
 export async function matchPhotosForStay(
   stay: Stay,
+  options: PhotoMatchOptions = {},
 ): Promise<MatchedPhoto[]> {
   const fromTime = stay.start_ts - TIME_MARGIN_MS;
   const toTime = stay.end_ts + TIME_MARGIN_MS;
@@ -56,9 +61,13 @@ export async function matchPhotosForStay(
     let score = 1;
     let displayUri = asset.uri;
 
-    // Fetch extended info to check GPS location and get localUri
     try {
       const info = await MediaLibrary.getAssetInfoAsync(asset.id);
+
+      if (options.excludeScreenshots && info.mediaSubtypes?.includes("screenshot")) {
+        continue;
+      }
+
       if (info.localUri) {
         displayUri = info.localUri;
       }
@@ -94,10 +103,11 @@ export async function matchPhotosForStay(
  */
 export async function matchPhotosForStays(
   stays: Stay[],
+  options: PhotoMatchOptions = {},
 ): Promise<Map<number, MatchedPhoto[]>> {
   const result = new Map<number, MatchedPhoto[]>();
   for (const stay of stays) {
-    const photos = await matchPhotosForStay(stay);
+    const photos = await matchPhotosForStay(stay, options);
     if (photos.length > 0) {
       result.set(stay.id, photos);
     }
