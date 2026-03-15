@@ -8,10 +8,21 @@ export const BANNER_AD_UNIT_ID =
 
 let sdkAvailable: boolean | null = null;
 
+function tryRequire(id: string): any {
+  try {
+    return require(id);
+  } catch {
+    return null;
+  }
+}
+
+const AD_MODULE_ID = "react-native-google-mobile-ads";
+
 export async function initAds(): Promise<boolean> {
   try {
-    const MobileAds = require("react-native-google-mobile-ads").default;
-    await MobileAds().initialize();
+    const mod = tryRequire(AD_MODULE_ID);
+    if (!mod?.default) { sdkAvailable = false; return false; }
+    await mod.default().initialize();
     sdkAvailable = true;
     return true;
   } catch {
@@ -22,11 +33,6 @@ export async function initAds(): Promise<boolean> {
 
 export function isAdSdkAvailable(): boolean {
   if (sdkAvailable !== null) return sdkAvailable;
-  try {
-    require("react-native-google-mobile-ads");
-    sdkAvailable = true;
-  } catch {
-    sdkAvailable = false;
-  }
+  sdkAvailable = !!tryRequire(AD_MODULE_ID);
   return sdkAvailable;
 }
