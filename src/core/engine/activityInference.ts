@@ -1,16 +1,18 @@
 import type { PlaceCategory } from "@/core/places/categories";
 import { NEEDS_REVIEW } from "@/core/constants";
 
-export type Activity = "meal" | "workout" | "work" | "commute" | "rest" | "shopping" | "other";
+export type Activity = "home" | "meal" | "workout" | "work" | "commute" | "rest" | "shopping" | "outing" | "other";
 
 export const ACTIVITY_LABELS: Record<Activity, string> = {
+  home: "自宅",
   meal: "食事",
   workout: "トレーニング",
   work: "仕事・作業",
   commute: "移動",
   rest: "休憩",
   shopping: "買い物",
-  other: "その他",
+  outing: "お出かけ",
+  other: "その他の滞在",
 };
 
 type InferenceInput = {
@@ -40,8 +42,12 @@ export function inferActivity(input: InferenceInput): InferenceResult {
     };
   }
 
-  // No place info → needs review
+  // No place info: likely residential area
   if (!category) {
+    // Long stay during night hours → probably home
+    if (durationMin >= 180 && (startHour >= 21 || startHour < 8)) {
+      return { activity: "home", confidence: 0.6, needs_review: false, reason: null };
+    }
     return {
       activity: "other",
       confidence: 0.3,
@@ -113,6 +119,21 @@ export function inferActivity(input: InferenceInput): InferenceResult {
   // Park → rest
   if (category === "park") {
     return { activity: "rest", confidence: 0.5, needs_review: false, reason: null };
+  }
+
+  // Bar → outing
+  if (category === "bar") {
+    return { activity: "outing", confidence: 0.7, needs_review: false, reason: null };
+  }
+
+  // Hotel → rest
+  if (category === "hotel") {
+    return { activity: "rest", confidence: 0.5, needs_review: false, reason: null };
+  }
+
+  // Hospital
+  if (category === "hospital") {
+    return { activity: "outing", confidence: 0.5, needs_review: true, reason: "通院？" };
   }
 
   // Duration too short or too long → needs review

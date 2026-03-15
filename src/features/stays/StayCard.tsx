@@ -56,13 +56,15 @@ function activityLabel(activity: string | null): string | null {
 }
 
 const ACTIVITY_ICON: Record<string, string> = {
+  home: "home-outline",
   meal: "restaurant-outline",
   workout: "barbell-outline",
   work: "briefcase-outline",
   commute: "train-outline",
   rest: "cafe-outline",
   shopping: "bag-outline",
-  other: "ellipsis-horizontal",
+  outing: "walk-outline",
+  other: "location-outline",
 };
 
 export function StayCard({ stay }: { stay: Stay }) {

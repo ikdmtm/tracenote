@@ -50,12 +50,14 @@ function parsePlaceJson(json: string | null): {
 }
 
 const ACTIVITY_OPTIONS: Activity[] = [
+  "home",
   "meal",
   "workout",
   "work",
   "commute",
   "rest",
   "shopping",
+  "outing",
   "other",
 ];
 

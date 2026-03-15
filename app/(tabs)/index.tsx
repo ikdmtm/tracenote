@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -13,7 +14,6 @@ import {
 import type { Stay } from "@/core/domain/models";
 import { getRawEventCount } from "@/core/storage/rawEventRepo";
 import { getTodayStays } from "@/core/storage/stayRepo";
-import { runTodayStayDetection } from "@/core/engine/stayService";
 import {
   startBackgroundLocation,
 } from "@/core/location/backgroundTask";
@@ -50,16 +50,17 @@ export default function HomeScreen() {
   const refreshData = useCallback(async () => {
     const count = await getRawEventCount(db);
     setEventCount(count);
-
-    if (count > 0) {
-      await runTodayStayDetection(db);
-      const todayStays = await getTodayStays(db);
-      setStays(todayStays);
-    }
+    const todayStays = await getTodayStays(db);
+    setStays(todayStays);
   }, [db]);
 
+  useFocusEffect(
+    useCallback(() => {
+      refreshData();
+    }, [refreshData]),
+  );
+
   useEffect(() => {
-    refreshData();
     const interval = setInterval(refreshData, 30_000);
     return () => clearInterval(interval);
   }, [refreshData]);

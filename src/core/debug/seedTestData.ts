@@ -35,13 +35,13 @@ export async function seedTestDay(
   await db.runAsync("DELETE FROM raw_events WHERE ts >= ? AND ts < ?", [dayStart, dayEnd]);
 
   const scenario: FakeStay[] = [
-    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 475, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "rest" },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 475, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "home" },
     { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 8, startMin: 40, durationMin: 195, jitterM: 25, fakePlaceName: "渋谷オフィス", fakeCategory: "office", fakeActivity: "work" },
     { label: "レストラン", lat: 35.6550, lng: 139.7410, startHour: 12, startMin: 5, durationMin: 50, jitterM: 15, fakePlaceName: "松屋 渋谷店", fakeCategory: "restaurant", fakeActivity: "meal" },
     { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 13, startMin: 5, durationMin: 295, jitterM: 25, fakePlaceName: "渋谷オフィス", fakeCategory: "office", fakeActivity: "work" },
     { label: "ジム", lat: 35.6650, lng: 139.7550, startHour: 18, startMin: 30, durationMin: 75, jitterM: 20, fakePlaceName: "エニタイムフィットネス", fakeCategory: "gym", fakeActivity: "workout" },
     { label: "カフェ", lat: 35.6700, lng: 139.7620, startHour: 20, startMin: 0, durationMin: 40, jitterM: 15, fakePlaceName: "スターバックス", fakeCategory: "cafe", fakeActivity: "rest" },
-    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "rest" },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "home" },
   ];
 
   let eventCount = 0;
