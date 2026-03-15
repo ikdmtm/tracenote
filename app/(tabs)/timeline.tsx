@@ -1,65 +1,64 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   FlatList,
   Pressable,
   RefreshControl,
-  SectionList,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import type { RawEvent, Stay, StayPhoto } from "@/core/domain/models";
-import { getLatestRawEvents } from "@/core/storage/rawEventRepo";
-import { getTodayStays } from "@/core/storage/stayRepo";
+import type { DiaryEntry, Stay, StayPhoto } from "@/core/domain/models";
+import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
+import { getDiaryByDay } from "@/core/storage/diaryRepo";
 import { StayCard } from "@/features/stays/StayCard";
 
-type ViewMode = "stays" | "raw";
-
-function formatTs(ts: number): string {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function dayKeyFromDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function RawEventRow({ item }: { item: RawEvent }) {
-  return (
-    <View style={styles.rawRow}>
-      <View style={styles.rawLeft}>
-        <Text style={styles.rawTime}>{formatTs(item.ts)}</Text>
-        <Text style={styles.rawCoord}>
-          {item.lat.toFixed(5)}, {item.lng.toFixed(5)}
-        </Text>
-      </View>
-      <View style={styles.rawRight}>
-        <Text style={styles.rawAcc}>±{Math.round(item.acc)}m</Text>
-        <Text style={styles.rawSource}>{item.source}</Text>
-      </View>
-    </View>
-  );
+function formatDisplayDate(d: Date): string {
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`;
 }
 
-const PAGE_SIZE = 100;
+function isToday(d: Date): boolean {
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+}
+
+function addDays(d: Date, n: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
 
 export default function TimelineScreen() {
   const db = useSQLiteContext();
-  const [mode, setMode] = useState<ViewMode>("stays");
+  const router = useRouter();
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [stays, setStays] = useState<Stay[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
-  const [events, setEvents] = useState<RawEvent[]>([]);
+  const [diary, setDiary] = useState<DiaryEntry | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(async () => {
-    const [s, e] = await Promise.all([
-      getTodayStays(db),
-      getLatestRawEvents(db, PAGE_SIZE),
+  const loadData = useCallback(async (date: Date) => {
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const dayEnd = dayStart + 24 * 60 * 60_000;
+    const dayKey = dayKeyFromDate(date);
+
+    const [s, d] = await Promise.all([
+      getStaysByDay(db, dayStart, dayEnd),
+      getDiaryByDay(db, dayKey),
     ]);
     setStays(s);
-    setEvents(e);
+    setDiary(d);
 
     const pMap: Record<number, StayPhoto[]> = {};
     for (const st of s) {
@@ -71,76 +70,85 @@ export default function TimelineScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData]),
+      loadData(currentDate);
+    }, [loadData, currentDate]),
   );
+
+  const goToPrevDay = useCallback(() => {
+    const prev = addDays(currentDate, -1);
+    setCurrentDate(prev);
+  }, [currentDate]);
+
+  const goToNextDay = useCallback(() => {
+    if (isToday(currentDate)) return;
+    const next = addDays(currentDate, 1);
+    setCurrentDate(next);
+  }, [currentDate]);
+
+  const goToToday = useCallback(() => {
+    setCurrentDate(new Date());
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(currentDate);
     setRefreshing(false);
-  }, [loadData]);
+  }, [loadData, currentDate]);
+
+  const dayKey = dayKeyFromDate(currentDate);
+  const isTodayView = isToday(currentDate);
 
   return (
     <View style={styles.container}>
-      <View style={styles.toggleRow}>
-        <Pressable
-          style={[styles.toggleBtn, mode === "stays" && styles.toggleActive]}
-          onPress={() => setMode("stays")}
-        >
-          <Text style={[styles.toggleText, mode === "stays" && styles.toggleTextActive]}>
-            滞在
-          </Text>
+      {/* Date Navigation */}
+      <View style={styles.dateNav}>
+        <Pressable onPress={goToPrevDay} style={styles.navBtn}>
+          <Ionicons name="chevron-back" size={22} color="#3b82f6" />
+        </Pressable>
+        <Pressable onPress={goToToday} style={styles.dateCenter}>
+          <Text style={styles.dateText}>{formatDisplayDate(currentDate)}</Text>
+          {isTodayView && <Text style={styles.todayBadge}>今日</Text>}
         </Pressable>
         <Pressable
-          style={[styles.toggleBtn, mode === "raw" && styles.toggleActive]}
-          onPress={() => setMode("raw")}
+          onPress={goToNextDay}
+          style={[styles.navBtn, isTodayView && { opacity: 0.3 }]}
+          disabled={isTodayView}
         >
-          <Text style={[styles.toggleText, mode === "raw" && styles.toggleTextActive]}>
-            Raw Events
-          </Text>
+          <Ionicons name="chevron-forward" size={22} color="#3b82f6" />
         </Pressable>
       </View>
 
-      {mode === "stays" ? (
-        stays.length === 0 ? (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>
-              検出された滞在がまだありません
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={stays}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <View style={styles.stayCardWrapper}>
-                <StayCard stay={item} photos={photoMap[item.id]} />
-              </View>
-            )}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          />
-        )
-      ) : events.length === 0 ? (
+      {/* Diary Link */}
+      {diary && (
+        <Pressable
+          style={styles.diaryLink}
+          onPress={() => router.push({ pathname: "/diary", params: { dayKey } })}
+        >
+          <Ionicons name="book-outline" size={18} color="#3b82f6" />
+          <Text style={styles.diaryLinkTitle} numberOfLines={1}>{diary.title ?? "日記"}</Text>
+          <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+        </Pressable>
+      )}
+
+      {/* Stays */}
+      {stays.length === 0 ? (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>
-            位置情報イベントがまだありません
+            この日の滞在データはありません
           </Text>
         </View>
       ) : (
         <FlatList
-          data={events}
+          data={stays}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <RawEventRow item={item} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          renderItem={({ item }) => (
+            <StayCard stay={item} photos={photoMap[item.id]} />
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -152,43 +160,57 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8fafc",
   },
-  toggleRow: {
+  dateNav: {
     flexDirection: "row",
-    marginHorizontal: 16,
-    marginVertical: 12,
-    backgroundColor: "#e2e8f0",
-    borderRadius: 10,
-    padding: 3,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 8,
     alignItems: "center",
-    borderRadius: 8,
-  },
-  toggleActive: {
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e2e8f0",
   },
-  toggleText: {
+  navBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#f1f5f9",
+  },
+  dateCenter: {
+    alignItems: "center",
+  },
+  dateText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  todayBadge: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#3b82f6",
+    marginTop: 2,
+  },
+  diaryLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: "#eff6ff",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+  },
+  diaryLinkTitle: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "500",
-    color: "#64748b",
-  },
-  toggleTextActive: {
-    color: "#0f172a",
-    fontWeight: "600",
+    color: "#1e40af",
   },
   listContent: {
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 24,
-  },
-  stayCardWrapper: {
-    marginBottom: 0,
   },
   placeholder: {
     flex: 1,
@@ -200,46 +222,5 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     textAlign: "center",
     lineHeight: 24,
-  },
-  rawRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 0,
-    borderRadius: 0,
-  },
-  rawLeft: {
-    flex: 1,
-  },
-  rawTime: {
-    fontSize: 14,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-    color: "#0f172a",
-  },
-  rawCoord: {
-    fontSize: 12,
-    fontVariant: ["tabular-nums"],
-    color: "#64748b",
-    marginTop: 2,
-  },
-  rawRight: {
-    alignItems: "flex-end",
-  },
-  rawAcc: {
-    fontSize: 13,
-    fontVariant: ["tabular-nums"],
-    color: "#0f172a",
-  },
-  rawSource: {
-    fontSize: 11,
-    color: "#94a3b8",
-    marginTop: 2,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "#e2e8f0",
   },
 });
