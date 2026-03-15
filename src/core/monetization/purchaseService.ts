@@ -1,25 +1,24 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 const REVENUECAT_IOS_KEY = "";
 const REVENUECAT_ANDROID_KEY = "";
 const ENTITLEMENT_ID = "pro";
 
-let sdkAvailable: boolean | null = null;
-let Purchases: any = null;
+const isExpoGo = Constants.appOwnership === "expo";
 
-function loadSdk(): boolean {
-  if (sdkAvailable !== null) return sdkAvailable;
+function getPurchases(): any {
+  if (isExpoGo) return null;
   try {
-    Purchases = require("react-native-purchases").default;
-    sdkAvailable = true;
+    return require("react-native-purchases").default;
   } catch {
-    sdkAvailable = false;
+    return null;
   }
-  return sdkAvailable;
 }
 
 export async function initPurchases(): Promise<boolean> {
-  if (!loadSdk()) return false;
+  const Purchases = getPurchases();
+  if (!Purchases) return false;
   const apiKey = Platform.OS === "ios" ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
   if (!apiKey) {
     console.log("[Purchases] No API key configured, running in free mode");
@@ -35,7 +34,8 @@ export async function initPurchases(): Promise<boolean> {
 }
 
 export async function checkSubscription(): Promise<boolean> {
-  if (!loadSdk() || !Purchases) return false;
+  const Purchases = getPurchases();
+  if (!Purchases) return false;
   try {
     const info = await Purchases.getCustomerInfo();
     return info.entitlements.active[ENTITLEMENT_ID] !== undefined;
@@ -45,7 +45,8 @@ export async function checkSubscription(): Promise<boolean> {
 }
 
 export async function purchaseSubscription(): Promise<boolean> {
-  if (!loadSdk() || !Purchases) return false;
+  const Purchases = getPurchases();
+  if (!Purchases) return false;
   try {
     const offerings = await Purchases.getOfferings();
     const pkg = offerings.current?.availablePackages?.[0];
@@ -59,7 +60,8 @@ export async function purchaseSubscription(): Promise<boolean> {
 }
 
 export async function restorePurchases(): Promise<boolean> {
-  if (!loadSdk() || !Purchases) return false;
+  const Purchases = getPurchases();
+  if (!Purchases) return false;
   try {
     const info = await Purchases.restorePurchases();
     return info.entitlements.active[ENTITLEMENT_ID] !== undefined;
@@ -69,5 +71,5 @@ export async function restorePurchases(): Promise<boolean> {
 }
 
 export function isPurchaseSdkAvailable(): boolean {
-  return loadSdk();
+  return !isExpoGo;
 }

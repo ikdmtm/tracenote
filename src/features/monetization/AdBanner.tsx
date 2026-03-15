@@ -1,17 +1,23 @@
+import Constants from "expo-constants";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { isAdSdkAvailable, BANNER_AD_UNIT_ID } from "@/core/monetization/adService";
+import { BANNER_AD_UNIT_ID } from "@/core/monetization/adService";
 import { useSubscription } from "@/features/monetization/SubscriptionContext";
 
-const AD_MODULE_ID = "react-native-google-mobile-ads";
+const isExpoGo = Constants.appOwnership === "expo";
 
-function tryRequire(id: string): any {
-  try {
-    return require(id);
-  } catch {
-    return null;
-  }
+function NativeAdBanner({ onError }: { onError: () => void }) {
+  if (isExpoGo) return null;
+  const { BannerAd, BannerAdSize } = require("react-native-google-mobile-ads");
+  return (
+    <BannerAd
+      unitId={BANNER_AD_UNIT_ID}
+      size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+      requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+      onAdFailedToLoad={onError}
+    />
+  );
 }
 
 export function AdBanner() {
@@ -20,41 +26,17 @@ export function AdBanner() {
 
   if (loading || isPro) return null;
 
-  if (!isAdSdkAvailable()) {
+  if (isExpoGo || adError) {
     return (
       <View style={styles.placeholder}>
         <Text style={styles.placeholderText}>Ad Placeholder (Dev)</Text>
-      </View>
-    );
-  }
-
-  const mod = tryRequire(AD_MODULE_ID);
-  if (!mod) {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Ad Placeholder (Dev)</Text>
-      </View>
-    );
-  }
-
-  const { BannerAd, BannerAdSize } = mod;
-
-  if (adError || !BannerAd) {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Ad</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <BannerAd
-        unitId={BANNER_AD_UNIT_ID}
-        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-        onAdFailedToLoad={() => setAdError(true)}
-      />
+      <NativeAdBanner onError={() => setAdError(true)} />
     </View>
   );
 }
