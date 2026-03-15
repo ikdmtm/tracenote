@@ -218,6 +218,13 @@ export default function HomeScreen() {
   const totalDistanceM = movements.reduce((s, m) => s + m.distance_m, 0);
   const totalPhotos = Object.values(photoMap).reduce((s, arr) => s + arr.length, 0);
 
+  const handleMovementModeChange = useCallback(async (mode: MovementMode) => {
+    if (!editingMovement?.dbId) return;
+    await updateMovementUserMode(db, editingMovement.dbId, mode);
+    await refreshData(currentDate);
+    setEditingMovement(null);
+  }, [db, editingMovement, refreshData, currentDate]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -225,13 +232,6 @@ export default function HomeScreen() {
       </View>
     );
   }
-
-  const handleMovementModeChange = useCallback(async (mode: MovementMode) => {
-    if (!editingMovement?.dbId) return;
-    await updateMovementUserMode(db, editingMovement.dbId, mode);
-    await refreshData(currentDate);
-    setEditingMovement(null);
-  }, [db, editingMovement, refreshData, currentDate]);
 
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === "movement") {
