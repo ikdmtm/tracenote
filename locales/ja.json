@@ -1,5 +1,5 @@
 {
-  "CFBundleDisplayName": "あしあとノート",
+  "CFBundleDisplayName": "行動日記",
   "NSLocationWhenInUseUsageDescription": "行動ログを自動で記録するため、位置情報を使用します。",
   "NSLocationAlwaysAndWhenInUseUsageDescription": "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。",
   "NSLocationAlwaysUsageDescription": "行動ログを自動で記録するため、常に位置情報を使用します。",

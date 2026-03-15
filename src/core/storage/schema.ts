@@ -62,5 +62,8 @@ export const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_diary_day ON diary_entries(day_key)`,
   `CREATE INDEX IF NOT EXISTS idx_movements_from ON movements(from_stay_id)`,
   `CREATE INDEX IF NOT EXISTS idx_movements_to ON movements(to_stay_id)`,
-  `ALTER TABLE stays ADD COLUMN IF NOT EXISTS memo TEXT`,
+] as const;
+
+export const SAFE_ALTERS = [
+  `ALTER TABLE stays ADD COLUMN memo TEXT`,
 ] as const;

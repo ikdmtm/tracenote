@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import { DIARY } from "@/core/constants";
-import { MIGRATIONS } from "@/core/storage/schema";
+import { MIGRATIONS, SAFE_ALTERS } from "@/core/storage/schema";
 import { pruneOldRawEvents } from "@/core/storage/retention";
 import { refreshHomeLocation } from "@/core/engine/homeDetector";
 
@@ -13,6 +13,10 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
 
   for (const sql of MIGRATIONS) {
     await db.execAsync(sql);
+  }
+
+  for (const sql of SAFE_ALTERS) {
+    try { await db.execAsync(sql); } catch { /* column already exists */ }
   }
 
   await seedDefaults(db);
