@@ -7,6 +7,9 @@ const config: ExpoConfig = {
   version: "0.1.0",
   orientation: "portrait",
   newArchEnabled: true,
+  android: {
+    package: "com.tracenote.app",
+  },
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.tracenote.app",
