@@ -6,8 +6,10 @@ const config: ExpoConfig = {
   scheme: "tracenote",
   version: "0.1.0",
   orientation: "portrait",
+  newArchEnabled: true,
   ios: {
     supportsTablet: false,
+    bundleIdentifier: "com.tracenote.app",
     infoPlist: {
       UIBackgroundModes: ["location"],
       NSLocationWhenInUseUsageDescription:
@@ -15,10 +17,14 @@ const config: ExpoConfig = {
       NSLocationAlwaysAndWhenInUseUsageDescription:
         "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。",
       NSLocationAlwaysUsageDescription:
-        "行動ログを自動で記録するため、常に位置情報を使用します。"
-    }
+        "行動ログを自動で記録するため、常に位置情報を使用します。",
+    },
   },
-  plugins: []
+  plugins: [
+    "expo-router",
+    "expo-sqlite",
+    "expo-font",
+  ],
 };
 
 export default config;

@@ -26,9 +26,13 @@
 
 推奨値（固定）
 - Home判定レンジ：0:00–6:00
+- Home判定はデータ蓄積まで保留（未確定時はマスク対象なし）
 - 滞在最小時間：20分
 - 同一地点マージ半径：150m
 - 精度アップ：requestLocation(単発) → 精度悪ければ最大30秒高精度、または accuracy<=80m で停止
+- timeInterval: 180000 (3分)
+- distanceFilter: 50m
+- accuracy: Accuracy.Balanced
 
 ## 滞在点（Stay）生成
 入力：RawEvent（時刻, lat/lng, accuracy, source）
@@ -56,6 +60,15 @@
 ### 日付区切り
 - ユーザーの「活動終了時刻」（デフォ24:00）
 - 1日の範囲： [前日 活動終了時刻, 当日 活動終了時刻)
+
+### 生成トリガー
+- 自動：翌日の設定時刻（デフォルト07:00）に前日分を生成
+- 手動：Homeの「日記を生成」ボタン（再生成・定時前の確認用）
+
+### LLM
+- モデル: GPT-4o-mini（サーバープロキシ経由、APIキーはサーバー保持）
+- 端末→サーバー→OpenAI の流れ。端末にAPIキーは置かない
+- Free/Subscription共通で利用可能
 
 ### LLMの役割
 - 端末内：滞在点生成、カテゴリ推定、行動推定、要確認付与
@@ -97,21 +110,36 @@
 - ハイライト（3点）
 - 要確認（最大3件を推奨。0件でもOK）
 
-## 共有
-- ShareCard（画像）を生成してSNS共有
-- Homeは必ずマスク（場所名は「自宅」・地名も非表示）
+## 広告 / サブスク
+- 広告: react-native-google-mobile-ads (AdMob)
+- サブスク: react-native-purchases (RevenueCat)
+- Free: 広告表示、Subscription: 広告非表示
 
 ## 修正UI
 - Stayの「行動ラベル」「場所名」を編集
 - 編集結果は以後の推定に軽く反映（同じplaceカテゴリに優先度）
 
 ## 画面
-- Home：今日の概要 + 生成/共有/修正導線
-- Timeline：RawEvent/Stay一覧
+### ナビゲーション
+- BottomTab: Home / Timeline / Settings（3タブ）
+- Stack: Home→Diary→Share, Home→EditStay, Timeline→EditStay, Settings→Export
+
+### 画面詳細
+- Home：今日のアクティビティ（Stayカードのライブフィード）+ 日記生成/共有導線
+  - Stayカード：場所名 + 時刻 + 行動ラベル + confidence表示
+  - カードタップ → EditStay（生成前に修正可能）
+  - 日記が生成済みならDiaryへの導線を表示
+- Timeline：日別の全履歴（RawEvent/Stay一覧、過去日も閲覧可能）
 - Diary：日記表示 + Share
 - EditStay：ラベル/場所名編集
-- Settings：活動終了時刻、Home再学習(リセット)、サブスク状態（広告ON/OFF）
+- Settings：活動終了時刻、日記生成時刻、Home再学習(リセット)、サブスク状態（広告ON/OFF）
 - Export：JSON/CSV書き出し + 共有
+
+## 共有（ShareCard）
+- フォーマット: Instagram Story (9:16, 1080x1920)
+- レイアウト: 日付 + タイトル + ハイライト3点 + アプリロゴ
+- 座標/住所は非表示、Homeは「自宅」表記
+- react-native-view-shot で画像化 → expo-sharing で共有
 
 ## DB（SQLite）
 - raw_events(id, ts, lat, lng, acc, source)
