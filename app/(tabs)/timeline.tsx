@@ -11,10 +11,9 @@ import {
   View,
 } from "react-native";
 
-import type { DiaryEntry, Stay, StayPhoto } from "@/core/domain/models";
+import type { Stay, StayPhoto } from "@/core/domain/models";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
-import { getDiaryByDay } from "@/core/storage/diaryRepo";
 import { StayCard } from "@/features/stays/StayCard";
 
 function dayKeyFromDate(d: Date): string {
@@ -45,20 +44,14 @@ export default function TimelineScreen() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [stays, setStays] = useState<Stay[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
-  const [diary, setDiary] = useState<DiaryEntry | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (date: Date) => {
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     const dayEnd = dayStart + 24 * 60 * 60_000;
-    const dayKey = dayKeyFromDate(date);
 
-    const [s, d] = await Promise.all([
-      getStaysByDay(db, dayStart, dayEnd),
-      getDiaryByDay(db, dayKey),
-    ]);
+    const s = await getStaysByDay(db, dayStart, dayEnd);
     setStays(s);
-    setDiary(d);
 
     const pMap: Record<number, StayPhoto[]> = {};
     for (const st of s) {
@@ -118,14 +111,16 @@ export default function TimelineScreen() {
         </Pressable>
       </View>
 
-      {/* Diary Link */}
-      {diary && (
+      {/* Summary Link */}
+      {stays.length > 0 && (
         <Pressable
-          style={styles.diaryLink}
+          style={styles.summaryLink}
           onPress={() => router.push({ pathname: "/diary", params: { dayKey } })}
         >
-          <Ionicons name="book-outline" size={18} color="#3b82f6" />
-          <Text style={styles.diaryLinkTitle} numberOfLines={1}>{diary.title ?? "日記"}</Text>
+          <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
+          <Text style={styles.summaryLinkText}>
+            サマリーを見る（{stays.length}件の滞在）
+          </Text>
           <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
         </Pressable>
       )}
@@ -189,7 +184,7 @@ const styles = StyleSheet.create({
     color: "#3b82f6",
     marginTop: 2,
   },
-  diaryLink: {
+  summaryLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -201,7 +196,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#dbeafe",
   },
-  diaryLinkTitle: {
+  summaryLinkText: {
     flex: 1,
     fontSize: 14,
     fontWeight: "500",

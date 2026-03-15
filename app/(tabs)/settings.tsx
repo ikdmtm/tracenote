@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 
-import { DIARY } from "@/core/constants";
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
 import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
 import {
@@ -103,16 +102,13 @@ export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const [dayEndTime, setDayEndTime] = useState<string>(DIARY.DEFAULT_DAY_END_TIME);
-  const [genTime, setGenTime] = useState<string>(DIARY.DEFAULT_GENERATION_TIME);
+  const [dayEndTime, setDayEndTime] = useState<string>("03:00");
   const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
 
   useEffect(() => {
     (async () => {
       const de = await getSetting(db, "day_end_time");
-      const gt = await getSetting(db, "generation_time");
       if (de) setDayEndTime(de);
-      if (gt) setGenTime(gt);
     })();
   }, [db]);
 
@@ -120,14 +116,6 @@ export default function SettingsScreen() {
     async (next: string) => {
       setDayEndTime(next);
       await setSetting(db, "day_end_time", next);
-    },
-    [db],
-  );
-
-  const updateGenTime = useCallback(
-    async (next: string) => {
-      setGenTime(next);
-      await setSetting(db, "generation_time", next);
     },
     [db],
   );
@@ -149,18 +137,6 @@ export default function SettingsScreen() {
             }
             onChangeMinute={(d) =>
               updateDayEndTime(cycleMinute(dayEndTime, d))
-            }
-          />
-          <View style={styles.divider} />
-          <TimeSettingRow
-            label="日記生成時刻"
-            description="前日分の日記を自動生成する時刻"
-            value={genTime}
-            onChangeHour={(d) =>
-              updateGenTime(cycleHour(genTime, d))
-            }
-            onChangeMinute={(d) =>
-              updateGenTime(cycleMinute(genTime, d))
             }
           />
         </View>
