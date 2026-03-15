@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -115,7 +116,7 @@ export default function StayDetailScreen() {
     setLoading(false);
   }, [db, id]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading || !stay) {
     return (
