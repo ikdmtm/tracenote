@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
+import { getHomeLocation, refreshHomeLocation, type HomeLocation } from "@/core/engine/homeDetector";
 import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
 import {
   usePhotoPermission,
@@ -105,6 +106,7 @@ export default function SettingsScreen() {
 
   const [dayEndTime, setDayEndTime] = useState<string>("03:00");
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
+  const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
   const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
 
   useEffect(() => {
@@ -113,6 +115,8 @@ export default function SettingsScreen() {
       if (de) setDayEndTime(de);
       const es = await getSetting(db, "exclude_screenshots");
       setExcludeScreenshots(es !== "false");
+      const h = await getHomeLocation(db);
+      setHomeLocation(h);
     })();
   }, [db]);
 
@@ -220,6 +224,29 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>ホーム判定</Text>
         <View style={styles.card}>
+          <View style={styles.menuRow}>
+            <Text style={styles.menuLabel}>ステータス</Text>
+            <Text style={styles.menuValue}>
+              {homeLocation
+                ? `判定済み (${homeLocation.lat.toFixed(3)}, ${homeLocation.lng.toFixed(3)})`
+                : "未判定（データ蓄積中）"}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.menuRow}
+            onPress={async () => {
+              const h = await refreshHomeLocation(db);
+              setHomeLocation(h);
+              Alert.alert(
+                "ホーム判定",
+                h ? `自宅を更新しました（${h.count}泊分のデータ）` : "まだ十分なデータがありません（3泊以上必要）",
+              );
+            }}
+          >
+            <Text style={[styles.menuLabel, { color: "#3b82f6" }]}>再判定する</Text>
+          </Pressable>
+          <View style={styles.divider} />
           <Pressable
             style={styles.menuRow}
             onPress={() =>
@@ -228,7 +255,14 @@ export default function SettingsScreen() {
                 "蓄積したホーム判定データをリセットしますか？",
                 [
                   { text: "キャンセル", style: "cancel" },
-                  { text: "リセット", style: "destructive" },
+                  {
+                    text: "リセット",
+                    style: "destructive",
+                    onPress: async () => {
+                      await setSetting(db, "home_location", "");
+                      setHomeLocation(null);
+                    },
+                  },
                 ],
               )
             }
