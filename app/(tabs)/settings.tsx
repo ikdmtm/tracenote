@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
-import { setAppLanguage } from "@/i18n";
+import i18n, { setAppLanguage } from "@/i18n";
 import { getHomeLocation, refreshHomeLocation, type HomeLocation } from "@/core/engine/homeDetector";
 import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
 import {
@@ -46,7 +46,7 @@ function cycleMinute(current: string, delta: number): string {
   return formatTimeStr(h, next);
 }
 
-type LangValue = "auto" | "ja" | "en";
+type LangValue = "ja" | "en";
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -54,7 +54,7 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const { theme: themeColors, themeId, setThemeId } = useTheme();
 
-  const [lang, setLang] = useState<LangValue>("auto");
+  const [lang, setLang] = useState<LangValue>(i18n.language as LangValue);
   const [dayEndTime, setDayEndTime] = useState<string>("03:00");
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
@@ -63,10 +63,11 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     (async () => {
-      const l = (await getSetting(db, "language")) as LangValue | null;
-      const langVal = l === "ja" || l === "en" ? l : "auto";
-      setLang(langVal);
-      setAppLanguage(langVal);
+      const l = await getSetting(db, "language");
+      if (l === "ja" || l === "en") {
+        setLang(l);
+        setAppLanguage(l);
+      }
       const de = await getSetting(db, "day_end_time");
       if (de) setDayEndTime(de);
       const es = await getSetting(db, "exclude_screenshots");
@@ -102,7 +103,7 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.language")}</Text>
         <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
-          {(["auto", "ja", "en"] as const).map((opt, idx) => (
+          {(["ja", "en"] as const).map((opt, idx) => (
             <View key={opt}>
               {idx > 0 && <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />}
               <Pressable
@@ -110,7 +111,7 @@ export default function SettingsScreen() {
                 onPress={() => handleLangChange(opt)}
               >
                 <Text style={[styles.menuLabel, { color: themeColors.text }]}>
-                  {opt === "auto" ? t("settings.langAuto") : opt === "ja" ? t("settings.langJa") : t("settings.langEn")}
+                  {opt === "ja" ? t("settings.langJa") : t("settings.langEn")}
                 </Text>
                 {lang === opt && <Ionicons name="checkmark-circle" size={20} color={themeColors.primary} />}
               </Pressable>

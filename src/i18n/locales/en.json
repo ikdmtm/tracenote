@@ -37,7 +37,8 @@
     "photos": "Photos ({{count}})",
     "noPhotos": "No photos linked",
     "accuracy": "Accuracy {{value}}%",
-    "memo": "Memo"
+    "memo": "Memo",
+    "noMemo": "No memo"
   },
   "editStay": {
     "title": "Edit Stay",

@@ -37,7 +37,8 @@
     "photos": "写真（{{count}}枚）",
     "noPhotos": "紐づいている写真はありません",
     "accuracy": "精度 {{value}}%",
-    "memo": "メモ"
+    "memo": "メモ",
+    "noMemo": "メモはありません"
   },
   "editStay": {
     "title": "滞在の編集",

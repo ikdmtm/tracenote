@@ -16,13 +16,8 @@ i18n.use(initReactI18next).init({
   compatibilityJSON: "v4",
 });
 
-export function setAppLanguage(lang: "auto" | "ja" | "en") {
-  if (lang === "auto") {
-    const dl = getLocales()[0]?.languageCode ?? "en";
-    i18n.changeLanguage(dl === "ja" ? "ja" : "en");
-  } else {
-    i18n.changeLanguage(lang);
-  }
+export function setAppLanguage(lang: "ja" | "en") {
+  i18n.changeLanguage(lang);
 }
 
 export default i18n;

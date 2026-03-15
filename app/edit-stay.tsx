@@ -201,7 +201,14 @@ export default function EditStayScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("editStay.title"), headerBackTitle: t("editStay.back") }} />
+      <Stack.Screen options={{
+        title: t("editStay.title"),
+        headerLeft: () => (
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="close" size={24} color={themeColors.text} />
+          </Pressable>
+        ),
+      }} />
       <ScrollView style={[styles.container, { backgroundColor: themeColors.bg }]} contentContainerStyle={styles.scrollContent}>
         {/* Time and Duration */}
         <View style={[styles.section, { backgroundColor: themeColors.surface }]}>

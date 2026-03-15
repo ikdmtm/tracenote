@@ -241,12 +241,12 @@ export default function StayDetailScreen() {
         </View>
 
         {/* Memo Section */}
-        {stay.memo && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.memo")}</Text>
-            <Text style={[styles.memoText, { color: themeColors.textSecondary }]}>{stay.memo}</Text>
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.memo")}</Text>
+          <Text style={[styles.memoText, { color: stay.memo ? themeColors.textSecondary : themeColors.textMuted }]}>
+            {stay.memo || t("stayDetail.noMemo")}
+          </Text>
+        </View>
 
         {/* Photos Section */}
         <View style={styles.section}>
