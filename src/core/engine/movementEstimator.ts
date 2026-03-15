@@ -1,7 +1,7 @@
 import type { Stay } from "@/core/domain/models";
 import { distanceM } from "@/core/engine/geo";
 
-export type MovementMode = "walk" | "bicycle" | "train" | "car" | "unknown";
+export type MovementMode = "walk" | "bicycle" | "train" | "car" | "airplane" | "unknown";
 
 export type Movement = {
   from_stay_id: number;
@@ -19,6 +19,7 @@ export const MOVEMENT_LABELS: Record<MovementMode, string> = {
   bicycle: "自転車",
   train: "電車",
   car: "車",
+  airplane: "飛行機",
   unknown: "移動",
 };
 
@@ -27,6 +28,7 @@ export const MOVEMENT_ICONS: Record<MovementMode, string> = {
   bicycle: "bicycle-outline",
   train: "train-outline",
   car: "car-outline",
+  airplane: "airplane-outline",
   unknown: "swap-horizontal-outline",
 };
 
@@ -35,7 +37,7 @@ function classifyMode(speedKmh: number): MovementMode {
   if (speedKmh <= 6) return "walk";
   if (speedKmh <= 25) return "bicycle";
   if (speedKmh <= 300) return "train";
-  return "unknown";
+  return "airplane";
 }
 
 export function estimateMovements(stays: readonly Stay[]): Movement[] {
