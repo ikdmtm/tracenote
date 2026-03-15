@@ -287,17 +287,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>TraceNote</Text>
-        {isTodayView && status === "always" && (
-          <View style={styles.statusMini}>
-            <StatusBadge status={status} />
-            <Text style={styles.eventCountMini}>{eventCount}件</Text>
-          </View>
-        )}
-      </View>
-
       {/* Date Navigation */}
       <View style={styles.dateNav}>
         <Pressable onPress={goToPrevDay} style={styles.navBtn} hitSlop={8}>
@@ -411,28 +400,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  statusMini: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  eventCountMini: {
-    fontSize: 12,
-    fontVariant: ["tabular-nums"],
-    color: "#64748b",
   },
   dateNav: {
     flexDirection: "row",
