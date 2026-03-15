@@ -14,7 +14,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="diary"
-          options={{ headerShown: true, title: "日記", presentation: "card" }}
+          options={{ headerShown: true, title: "サマリー", presentation: "card" }}
         />
         <Stack.Screen
           name="edit-stay"

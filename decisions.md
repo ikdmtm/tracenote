@@ -16,9 +16,9 @@
 
 ## Navigation
 - BottomTab: Home / Timeline / Settings（3タブ）
-- Stack: Home→Diary→Share, Home→EditStay, Timeline→Diary, Timeline→EditStay, Settings→Export
-- Home = 今日のライブビュー（Stayカード + サマリー導線）、Timeline = 過去含む全履歴
-- Timeline から過去日の Diary に遷移可能
+- Stack: Home→EditStay, Home→Share, Settings→Export
+- Home = 整理済み滞在ビュー（日付ナビで過去日も閲覧、統計 + Stayカード + 移動推定 + 写真 + シェア）
+- Timeline = RawEvent生ログフィード（日付ナビで過去日も閲覧、時刻 + 座標 + 場所推定）
 
 ## Background Location
 - timeInterval: 180000 (3分)
@@ -41,11 +41,19 @@
 - モデル候補: GPT-4o-mini（コスト/品質バランス最適）
 - APIキー管理: サーバープロキシ経由（キーはサーバー側保持）
 
-## Daily Summary（MVP）
-- Diary画面 = 日別サマリー（テンプレートベース）
-- 統計ヘッダー（滞在数、合計時間、写真枚数）
-- Stayカード一覧（写真付き）
-- Home / Timeline からStay有無でリンク表示
+## Home画面（MVP）
+- Home画面に統計 + Stayカード + 移動インジケータを直接表示
+- 統計ヘッダー: 滞在数、合計時間、移動回数、写真枚数
+- Stay間に移動手段推定を表示（速度ベース: 徒歩≤6km/h, 自転車≤25km/h, 電車・車>25km/h）
+- 日付ナビで過去日も閲覧可能
+- パーミッション導線は「常に許可」後に小さなバッジに縮小
+
+## Timeline画面（MVP）
+- RawEvent（3分ごとの位置記録）を生ログとして時系列表示
+- Stay内のRawEventはStayの場所名を表示、Stay外は「移動中」
+- 1時間ごとのセクション区切り
+- 日付ナビで過去日も閲覧可能
+- 編集機能なし（閲覧のみ）
 
 ## Monetization (MVP)
 - Free: 広告あり
