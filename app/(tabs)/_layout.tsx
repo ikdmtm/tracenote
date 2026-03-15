@@ -1,5 +1,10 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Text, StyleSheet } from "react-native";
+
+function HeaderTitle() {
+  return <Text style={styles.headerTitle}>TraceNote</Text>;
+}
 
 export default function TabLayout() {
   return (
@@ -8,13 +13,14 @@ export default function TabLayout() {
         tabBarActiveTintColor: "#2563eb",
         tabBarInactiveTintColor: "#94a3b8",
         headerStyle: { backgroundColor: "#ffffff" },
-        headerTitleStyle: { fontWeight: "600" },
+        headerTitle: () => <HeaderTitle />,
+        headerTitleAlign: "left",
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "ホーム",
+          tabBarLabel: "ホーム",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
@@ -23,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="timeline"
         options={{
-          title: "タイムライン",
+          tabBarLabel: "タイムライン",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
@@ -32,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "設定",
+          tabBarLabel: "設定",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),
@@ -41,3 +47,12 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1e293b",
+    letterSpacing: 0.3,
+  },
+});
