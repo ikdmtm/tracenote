@@ -13,6 +13,7 @@ import {
 
 import { DIARY } from "@/core/constants";
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
+import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
 
 function parseTime(val: string): { h: number; m: number } {
   const [h, m] = val.split(":").map(Number);
@@ -203,6 +204,71 @@ export default function SettingsScreen() {
             <Text style={styles.menuLabel}>プラン</Text>
             <Text style={styles.menuValue}>Free（広告あり）</Text>
           </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>デバッグ</Text>
+        <View style={styles.card}>
+          <Pressable
+            style={styles.menuRow}
+            onPress={async () => {
+              try {
+                const result = await seedTestDay(db, 0);
+                Alert.alert(
+                  "テストデータ生成完了",
+                  `今日: ${result.events}イベント → ${result.stays}滞在を検出`,
+                );
+              } catch (e) {
+                Alert.alert("エラー", String(e));
+              }
+            }}
+          >
+            <Text style={styles.menuLabel}>今日のテストデータを生成</Text>
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.menuRow}
+            onPress={async () => {
+              try {
+                const r0 = await seedTestDay(db, 1);
+                const r1 = await seedTestDay(db, 2);
+                Alert.alert(
+                  "テストデータ生成完了",
+                  `昨日: ${r0.events}イベント → ${r0.stays}滞在\n一昨日: ${r1.events}イベント → ${r1.stays}滞在`,
+                );
+              } catch (e) {
+                Alert.alert("エラー", String(e));
+              }
+            }}
+          >
+            <Text style={styles.menuLabel}>過去2日分のテストデータを生成</Text>
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.menuRow}
+            onPress={() =>
+              Alert.alert(
+                "全データを削除",
+                "RawEvent・Stay・日記をすべて削除します。",
+                [
+                  { text: "キャンセル", style: "cancel" },
+                  {
+                    text: "削除",
+                    style: "destructive",
+                    onPress: async () => {
+                      await clearAllData(db);
+                      Alert.alert("完了", "全データを削除しました");
+                    },
+                  },
+                ],
+              )
+            }
+          >
+            <Text style={[styles.menuLabel, { color: "#ef4444" }]}>
+              全データを削除
+            </Text>
+          </Pressable>
         </View>
       </View>
 
