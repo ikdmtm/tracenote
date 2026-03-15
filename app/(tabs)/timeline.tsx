@@ -13,6 +13,7 @@ import {
 
 import type { RawEvent, Stay } from "@/core/domain/models";
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
+import { AdBanner } from "@/features/monetization/AdBanner";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
@@ -217,6 +218,8 @@ export default function TimelineScreen() {
           }
         />
       )}
+
+      <AdBanner />
     </View>
   );
 }

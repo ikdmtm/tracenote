@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { initAds } from "@/core/monetization/adService";
+import { initAds, warmUpInterstitial } from "@/core/monetization/adService";
 import {
   initPurchases,
   checkSubscription,
@@ -29,7 +29,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      await initAds();
+      const adsReady = await initAds();
+      if (adsReady) warmUpInterstitial();
       const purchaseReady = await initPurchases();
       if (purchaseReady) {
         const active = await checkSubscription();

@@ -14,7 +14,9 @@ import {
 } from "react-native";
 
 import { exportData, type ExportFormat } from "@/core/export/exporter";
+import { showInterstitialIfReady } from "@/core/monetization/adService";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
+import { useSubscription } from "@/features/monetization/SubscriptionContext";
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
@@ -30,6 +32,7 @@ function daysAgo(n: number): Date {
 export default function ExportScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const { isPro } = useSubscription();
 
   const [startDate, setStartDate] = useState(() => daysAgo(7));
   const [endDate, setEndDate] = useState(() => daysAgo(0));
@@ -52,6 +55,7 @@ export default function ExportScreen() {
           mimeType: format === "json" ? "application/json" : "text/csv",
           UTI: format === "json" ? "public.json" : "public.comma-separated-values-text",
         });
+        showInterstitialIfReady(isPro);
       } else {
         Alert.alert("完了", `ファイルを生成しました:\n${filePath}`);
       }

@@ -16,6 +16,7 @@ import {
 import { captureRef } from "react-native-view-shot";
 
 import type { Stay, StayPhoto } from "@/core/domain/models";
+import { showInterstitialIfReady } from "@/core/monetization/adService";
 import { distanceM } from "@/core/engine/geo";
 import {
   getHomeLocation,
@@ -24,6 +25,7 @@ import {
 } from "@/core/engine/homeDetector";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
+import { useSubscription } from "@/features/monetization/SubscriptionContext";
 import {
   ShareCardPage,
   splitIntoPages,
@@ -45,6 +47,7 @@ export default function ShareScreen() {
   const { dayKey } = useLocalSearchParams<{ dayKey: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
+  const { isPro } = useSubscription();
 
   const [stays, setStays] = useState<Stay[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
@@ -117,6 +120,7 @@ export default function ShareScreen() {
         mimeType: "image/png",
         dialogTitle: `TraceNote - ${formatTitle(date)}`,
       });
+      showInterstitialIfReady(isPro);
     } catch (e: any) {
       if (e?.message?.includes("User did not share")) return;
       console.warn("[Share] Error:", e);
