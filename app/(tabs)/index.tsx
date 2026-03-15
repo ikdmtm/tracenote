@@ -33,6 +33,7 @@ import {
 } from "@/core/engine/movementEstimator";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
 import { MovementModePicker } from "@/features/movements/MovementModePicker";
+import { AdBanner } from "@/features/monetization/AdBanner";
 
 function StatusBadge({ status }: { status: PermissionState }) {
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
@@ -400,6 +401,8 @@ export default function HomeScreen() {
           )}
         </View>
       )}
+
+      <AdBanner />
     </View>
   );
 }

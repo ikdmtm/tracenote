@@ -5,10 +5,12 @@ import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 
 import { DB_NAME, initDatabase } from "@/core/storage/db";
+import { SubscriptionProvider } from "@/features/monetization/SubscriptionContext";
 
 export default function RootLayout() {
   return (
     <SQLiteProvider databaseName={DB_NAME} onInit={initDatabase}>
+      <SubscriptionProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
@@ -45,6 +47,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      </SubscriptionProvider>
     </SQLiteProvider>
   );
 }

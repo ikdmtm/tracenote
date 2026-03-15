@@ -19,6 +19,7 @@ import {
   usePhotoPermission,
   type PhotoPermissionState,
 } from "@/features/photos/usePhotoPermission";
+import { useSubscription } from "@/features/monetization/SubscriptionContext";
 
 function parseTime(val: string): { h: number; m: number } {
   const [h, m] = val.split(":").map(Number);
@@ -108,6 +109,7 @@ export default function SettingsScreen() {
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
   const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
+  const { isPro, purchase, restore } = useSubscription();
 
   useEffect(() => {
     (async () => {
@@ -279,8 +281,58 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.menuRow}>
             <Text style={styles.menuLabel}>プラン</Text>
-            <Text style={styles.menuValue}>Free（広告あり）</Text>
+            <View style={isPro
+              ? [styles.permBadge, { backgroundColor: "#dbeafe" }] as any
+              : [styles.permBadge, { backgroundColor: "#f1f5f9" }] as any
+            }>
+              <Text style={isPro
+                ? [styles.permBadgeText, { color: "#2563eb" }] as any
+                : [styles.permBadgeText, { color: "#64748b" }] as any
+              }>
+                {isPro ? "Pro（広告なし）" : "Free（広告あり）"}
+              </Text>
+            </View>
           </View>
+          {!isPro && (
+            <>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.menuRow}
+                onPress={async () => {
+                  try {
+                    const ok = await purchase();
+                    Alert.alert(
+                      ok ? "ありがとうございます" : "購入",
+                      ok ? "Proプランにアップグレードしました" : "購入がキャンセルされたか、まだ設定されていません",
+                    );
+                  } catch (e) {
+                    Alert.alert("エラー", String(e));
+                  }
+                }}
+              >
+                <Text style={[styles.menuLabel, { color: "#3b82f6" }]}>
+                  Proにアップグレード
+                </Text>
+              </Pressable>
+            </>
+          )}
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.menuRow}
+            onPress={async () => {
+              try {
+                const ok = await restore();
+                Alert.alert(
+                  "購入の復元",
+                  ok ? "Proプランを復元しました" : "復元可能な購入が見つかりませんでした",
+                );
+              } catch (e) {
+                Alert.alert("エラー", String(e));
+              }
+            }}
+          >
+            <Text style={styles.menuLabel}>購入を復元</Text>
+          </Pressable>
         </View>
       </View>
 

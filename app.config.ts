@@ -37,6 +37,10 @@ const config: ExpoConfig = {
       "expo-media-library",
       { photosPermission: "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。" },
     ],
+    [
+      "react-native-google-mobile-ads",
+      { androidAppId: "ca-app-pub-3940256099942544~3347511713", iosAppId: "ca-app-pub-3940256099942544~1458002511" },
+    ],
   ],
 };
 
