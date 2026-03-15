@@ -240,14 +240,6 @@ export default function StayDetailScreen() {
           </View>
         </View>
 
-        {/* Memo Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.memo")}</Text>
-          <Text style={[styles.memoText, { color: stay.memo ? themeColors.textSecondary : themeColors.textMuted }]}>
-            {stay.memo || t("stayDetail.noMemo")}
-          </Text>
-        </View>
-
         {/* Photos Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.photos", { count: photos.length })}</Text>
@@ -271,6 +263,18 @@ export default function StayDetailScreen() {
               {t("stayDetail.noPhotos")}
             </Text>
           )}
+        </View>
+
+        {/* Memo Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.memo")}</Text>
+          <Text style={[
+            styles.memoText,
+            { color: stay.memo ? themeColors.textSecondary : themeColors.textMuted },
+            !stay.memo && styles.emptyPhotos,
+          ]}>
+            {stay.memo || t("stayDetail.noMemo")}
+          </Text>
         </View>
 
         {/* Edit Button */}
