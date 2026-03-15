@@ -94,13 +94,35 @@ function stayPhoto(stay: Stay, photoMap: Record<number, StayPhoto[]>): StayPhoto
 
 type MoveInfo = { mode: MovementMode; dist: number; dur: number };
 
-function calcMove(from: Stay, to: Stay): MoveInfo {
+/**
+ * Calculate movement info between two visible (non-home) stays.
+ * If home stays exist between them, subtract the home stay durations
+ * to get the actual travel time for speed estimation.
+ */
+function calcMoveWithHomeGap(
+  from: Stay,
+  to: Stay,
+  allStays: Stay[],
+  home: HomeLocation | null,
+): MoveInfo {
   const dist = Math.round(distanceM(from.lat, from.lng, to.lat, to.lng));
-  const durMs = to.start_ts - from.end_ts;
-  const durMin = Math.max(1, Math.round(durMs / 60_000));
-  const durH = durMs / 3_600_000;
-  const speed = durH > 0 ? (dist / 1000) / durH : 0;
-  return { mode: classifySpeed(speed), dist, dur: durMin };
+  const totalGapMs = to.start_ts - from.end_ts;
+
+  let homeTimeMs = 0;
+  if (home) {
+    for (const s of allStays) {
+      if (s.start_ts >= from.end_ts && s.end_ts <= to.start_ts && isHomeStay(s, home)) {
+        homeTimeMs += s.end_ts - s.start_ts;
+      }
+    }
+  }
+
+  const travelMs = Math.max(60_000, totalGapMs - homeTimeMs);
+  const travelMin = Math.round(travelMs / 60_000);
+  const travelH = travelMs / 3_600_000;
+  const speed = travelH > 0 ? (dist / 1000) / travelH : 0;
+
+  return { mode: classifySpeed(speed), dist, dur: travelMin };
 }
 
 /* ─── Page splitting ─── */
@@ -117,6 +139,7 @@ export type PageSlice = {
   totalPages: number;
   staysSlice: Stay[];
   isFirst: boolean;
+  prevPageLastStay: Stay | null;
 };
 
 export function splitIntoPages(
@@ -131,13 +154,23 @@ export function splitIntoPages(
   let pageIdx = 0;
 
   const firstCount = Math.min(STAYS_PER_FIRST_PAGE, visible.length);
-  pages.push({ pageIdx, totalPages: 0, staysSlice: visible.slice(0, firstCount), isFirst: true });
+  pages.push({
+    pageIdx, totalPages: 0,
+    staysSlice: visible.slice(0, firstCount),
+    isFirst: true,
+    prevPageLastStay: null,
+  });
   offset = firstCount;
   pageIdx++;
 
   while (offset < visible.length) {
     const count = Math.min(STAYS_PER_NEXT_PAGE, visible.length - offset);
-    pages.push({ pageIdx, totalPages: 0, staysSlice: visible.slice(offset, offset + count), isFirst: false });
+    pages.push({
+      pageIdx, totalPages: 0,
+      staysSlice: visible.slice(offset, offset + count),
+      isFirst: false,
+      prevPageLastStay: visible[offset - 1],
+    });
     offset += count;
     pageIdx++;
   }
@@ -152,14 +185,16 @@ export type ShareCardPageProps = {
   date: Date;
   page: PageSlice;
   photoMap: Record<number, StayPhoto[]>;
+  allStays: Stay[];
+  home: HomeLocation | null;
   totalStays: number;
   totalDistanceM: number;
   totalPhotos: number;
 };
 
 export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
-  ({ date, page, photoMap, totalStays, totalDistanceM, totalPhotos }, ref) => {
-    const { staysSlice, isFirst, pageIdx, totalPages } = page;
+  ({ date, page, photoMap, allStays, home, totalStays, totalDistanceM, totalPhotos }, ref) => {
+    const { staysSlice, isFirst, pageIdx, totalPages, prevPageLastStay } = page;
     const multiPage = totalPages > 1;
 
     return (
@@ -210,8 +245,8 @@ export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
             const photo = stayPhoto(stay, photoMap);
             const isLast = idx === staysSlice.length - 1;
 
-            const prevStay = idx > 0 ? staysSlice[idx - 1] : null;
-            const move = prevStay ? calcMove(prevStay, stay) : null;
+            const prevStay = idx > 0 ? staysSlice[idx - 1] : prevPageLastStay;
+            const move = prevStay ? calcMoveWithHomeGap(prevStay, stay, allStays, home) : null;
 
             return (
               <React.Fragment key={stay.id}>

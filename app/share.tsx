@@ -200,6 +200,8 @@ export default function ShareScreen() {
                   date={date}
                   page={item}
                   photoMap={photoMap}
+                  allStays={stays}
+                  home={home}
                   totalStays={visibleStays.length}
                   totalDistanceM={totalDistanceM}
                   totalPhotos={totalPhotos}
