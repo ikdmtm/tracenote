@@ -25,7 +25,10 @@ function confidenceColor(conf: number): string {
 
 export function StayCard({ stay }: { stay: Stay }) {
   const router = useRouter();
-  const placeName = stay.user_place_name ?? stay.activity ?? "不明な場所";
+  const placeName =
+    stay.user_place_name ??
+    stay.activity ??
+    `滞在地点 (${stay.lat.toFixed(4)}, ${stay.lng.toFixed(4)})`;
 
   return (
     <Pressable

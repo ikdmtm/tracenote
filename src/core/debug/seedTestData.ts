@@ -26,15 +26,15 @@ export async function seedTestDay(
   baseDate.setHours(0, 0, 0, 0);
   const dayStart = baseDate.getTime();
 
+  // Locations are 300m+ apart to ensure separate stay detection
   const scenario: FakeStay[] = [
-    { label: "自宅（睡眠〜出発）", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 480 },
-    { label: "通勤（電車）", lat: 35.6762, lng: 139.7503, startHour: 8, startMin: 10, durationMin: 5 },
-    { label: "オフィス（午前）", lat: 35.6586, lng: 139.7454, startHour: 8, startMin: 40, durationMin: 200 },
-    { label: "ランチ（レストラン）", lat: 35.6590, lng: 139.7440, startHour: 12, startMin: 0, durationMin: 55 },
-    { label: "オフィス（午後）", lat: 35.6586, lng: 139.7454, startHour: 13, startMin: 0, durationMin: 300 },
-    { label: "ジム", lat: 35.6610, lng: 139.7480, startHour: 18, startMin: 30, durationMin: 75 },
-    { label: "カフェ", lat: 35.6620, lng: 139.7460, startHour: 19, startMin: 55, durationMin: 40 },
-    { label: "自宅（帰宅後）", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180 },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 475, jitterM: 20 },
+    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 8, startMin: 40, durationMin: 195, jitterM: 25 },
+    { label: "レストラン", lat: 35.6550, lng: 139.7410, startHour: 12, startMin: 5, durationMin: 50, jitterM: 15 },
+    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 13, startMin: 5, durationMin: 295, jitterM: 25 },
+    { label: "ジム", lat: 35.6650, lng: 139.7550, startHour: 18, startMin: 30, durationMin: 75, jitterM: 20 },
+    { label: "カフェ", lat: 35.6700, lng: 139.7620, startHour: 20, startMin: 0, durationMin: 40, jitterM: 15 },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180, jitterM: 20 },
   ];
 
   let eventCount = 0;
