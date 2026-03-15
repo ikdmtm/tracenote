@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Stay } from "@/core/domain/models";
+import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
+import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -23,12 +25,51 @@ function confidenceColor(conf: number): string {
   return "#dc2626";
 }
 
+function parsePlaceJson(json: string | null): { name: string | null; category: PlaceCategory | null } {
+  if (!json) return { name: null, category: null };
+  try {
+    const parsed = JSON.parse(json);
+    return {
+      name: parsed.top?.name ?? null,
+      category: parsed.top?.category ?? null,
+    };
+  } catch {
+    return { name: null, category: null };
+  }
+}
+
+function resolveDisplayName(stay: Stay): string {
+  if (stay.user_place_name) return stay.user_place_name;
+
+  const { name } = parsePlaceJson(stay.place_json);
+  if (name) return name;
+
+  const { category } = parsePlaceJson(stay.place_json);
+  if (category && category !== "other") return CATEGORY_LABELS[category];
+
+  return `滞在地点 (${stay.lat.toFixed(4)}, ${stay.lng.toFixed(4)})`;
+}
+
+function activityLabel(activity: string | null): string | null {
+  if (!activity) return null;
+  return ACTIVITY_LABELS[activity as Activity] ?? activity;
+}
+
+const ACTIVITY_ICON: Record<string, string> = {
+  meal: "restaurant-outline",
+  workout: "barbell-outline",
+  work: "briefcase-outline",
+  commute: "train-outline",
+  rest: "cafe-outline",
+  shopping: "bag-outline",
+  other: "ellipsis-horizontal",
+};
+
 export function StayCard({ stay }: { stay: Stay }) {
   const router = useRouter();
-  const placeName =
-    stay.user_place_name ??
-    stay.activity ??
-    `滞在地点 (${stay.lat.toFixed(4)}, ${stay.lng.toFixed(4)})`;
+  const displayName = resolveDisplayName(stay);
+  const label = activityLabel(stay.activity);
+  const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
 
   return (
     <Pressable
@@ -43,8 +84,9 @@ export function StayCard({ stay }: { stay: Stay }) {
 
       <View style={styles.content}>
         <View style={styles.headerRow}>
+          <Ionicons name={icon as any} size={16} color="#64748b" style={{ marginRight: 4 }} />
           <Text style={styles.placeName} numberOfLines={1}>
-            {placeName}
+            {displayName}
           </Text>
           {stay.needs_review && (
             <View style={styles.reviewBadge}>
@@ -53,9 +95,12 @@ export function StayCard({ stay }: { stay: Stay }) {
           )}
         </View>
 
-        <Text style={styles.duration}>
-          {durationLabel(stay.start_ts, stay.end_ts)}
-        </Text>
+        <View style={styles.subRow}>
+          {label && <Text style={styles.activityChip}>{label}</Text>}
+          <Text style={styles.duration}>
+            {durationLabel(stay.start_ts, stay.end_ts)}
+          </Text>
+        </View>
 
         <View style={styles.footer}>
           <View style={styles.confRow}>
@@ -131,10 +176,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#d97706",
   },
+  subRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  activityChip: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
   duration: {
     fontSize: 13,
     color: "#64748b",
-    marginTop: 4,
   },
   footer: {
     flexDirection: "row",

@@ -10,6 +10,9 @@ type FakeStay = {
   startMin: number;
   durationMin: number;
   jitterM?: number;
+  fakePlaceName?: string;
+  fakeCategory?: string;
+  fakeActivity?: string;
 };
 
 /**
@@ -31,15 +34,14 @@ export async function seedTestDay(
   await db.runAsync("DELETE FROM stays WHERE start_ts >= ? AND start_ts < ?", [dayStart, dayEnd]);
   await db.runAsync("DELETE FROM raw_events WHERE ts >= ? AND ts < ?", [dayStart, dayEnd]);
 
-  // Locations are 300m+ apart to ensure separate stay detection
   const scenario: FakeStay[] = [
-    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 475, jitterM: 20 },
-    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 8, startMin: 40, durationMin: 195, jitterM: 25 },
-    { label: "レストラン", lat: 35.6550, lng: 139.7410, startHour: 12, startMin: 5, durationMin: 50, jitterM: 15 },
-    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 13, startMin: 5, durationMin: 295, jitterM: 25 },
-    { label: "ジム", lat: 35.6650, lng: 139.7550, startHour: 18, startMin: 30, durationMin: 75, jitterM: 20 },
-    { label: "カフェ", lat: 35.6700, lng: 139.7620, startHour: 20, startMin: 0, durationMin: 40, jitterM: 15 },
-    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180, jitterM: 20 },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 0, startMin: 0, durationMin: 475, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "rest" },
+    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 8, startMin: 40, durationMin: 195, jitterM: 25, fakePlaceName: "渋谷オフィス", fakeCategory: "office", fakeActivity: "work" },
+    { label: "レストラン", lat: 35.6550, lng: 139.7410, startHour: 12, startMin: 5, durationMin: 50, jitterM: 15, fakePlaceName: "松屋 渋谷店", fakeCategory: "restaurant", fakeActivity: "meal" },
+    { label: "オフィス", lat: 35.6586, lng: 139.7454, startHour: 13, startMin: 5, durationMin: 295, jitterM: 25, fakePlaceName: "渋谷オフィス", fakeCategory: "office", fakeActivity: "work" },
+    { label: "ジム", lat: 35.6650, lng: 139.7550, startHour: 18, startMin: 30, durationMin: 75, jitterM: 20, fakePlaceName: "エニタイムフィットネス", fakeCategory: "gym", fakeActivity: "workout" },
+    { label: "カフェ", lat: 35.6700, lng: 139.7620, startHour: 20, startMin: 0, durationMin: 40, jitterM: 15, fakePlaceName: "スターバックス", fakeCategory: "cafe", fakeActivity: "rest" },
+    { label: "自宅", lat: 35.6812, lng: 139.7671, startHour: 21, startMin: 0, durationMin: 180, jitterM: 20, fakePlaceName: "自宅", fakeCategory: "other", fakeActivity: "rest" },
   ];
 
   let eventCount = 0;
@@ -86,6 +88,30 @@ export async function seedTestDay(
   }
 
   const stayCount = await runStayDetection(db, dayStart, dayEnd);
+
+  // Apply fallback place data for stays where enrichment may have failed (offline, etc.)
+  const stays = await db.getAllAsync<{ id: number; lat: number; lng: number; place_json: string | null }>(
+    "SELECT id, lat, lng, place_json FROM stays WHERE start_ts >= ? AND start_ts < ? ORDER BY start_ts",
+    [dayStart, dayEnd],
+  );
+
+  for (const stay of stays) {
+    if (stay.place_json) continue;
+    const match = scenario.find(
+      (s) => Math.abs(s.lat - stay.lat) < 0.002 && Math.abs(s.lng - stay.lng) < 0.002,
+    );
+    if (match?.fakePlaceName) {
+      await db.runAsync(
+        "UPDATE stays SET place_json = ?, activity = ?, user_place_name = ? WHERE id = ?",
+        [
+          JSON.stringify({ top: { name: match.fakePlaceName, category: match.fakeCategory, osmTag: "debug", distance_m: 0 }, count: 1 }),
+          match.fakeActivity ?? "other",
+          match.fakePlaceName,
+          stay.id,
+        ],
+      );
+    }
+  }
 
   return { events: eventCount, stays: stayCount };
 }

@@ -1,11 +1,14 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
+import { getStaysByDay } from "@/core/storage/stayRepo";
 import { detectStays } from "@/core/engine/stayDetector";
+import { enrichStays } from "@/core/engine/enrichService";
 
 /**
  * Run stay detection for a given time range.
  * Deletes existing stays in the range and replaces with fresh detection.
+ * Then enriches them with place info and activity inference.
  */
 export async function runStayDetection(
   db: SQLiteDatabase,
@@ -31,6 +34,9 @@ export async function runStayDetection(
       [stay.start_ts, stay.end_ts, stay.lat, stay.lng, stay.radius_m, stay.confidence],
     );
   }
+
+  const insertedStays = await getStaysByDay(db, startTs, endTs);
+  await enrichStays(db, insertedStays);
 
   return detected.length;
 }

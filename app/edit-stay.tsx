@@ -1,14 +1,249 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useSQLiteContext } from "expo-sqlite";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+
+import type { Stay } from "@/core/domain/models";
+import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
+import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { getStayById, updateStay } from "@/core/storage/stayRepo";
+import { enrichStay } from "@/core/engine/enrichService";
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function durationLabel(startTs: number, endTs: number): string {
+  const mins = Math.round((endTs - startTs) / 60_000);
+  if (mins < 60) return `${mins}分`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
+}
+
+function parsePlaceJson(json: string | null): {
+  name: string | null;
+  category: PlaceCategory | null;
+  count: number;
+} {
+  if (!json) return { name: null, category: null, count: 0 };
+  try {
+    const parsed = JSON.parse(json);
+    return {
+      name: parsed.top?.name ?? null,
+      category: parsed.top?.category ?? null,
+      count: parsed.count ?? 0,
+    };
+  } catch {
+    return { name: null, category: null, count: 0 };
+  }
+}
+
+const ACTIVITY_OPTIONS: Activity[] = [
+  "meal",
+  "workout",
+  "work",
+  "commute",
+  "rest",
+  "shopping",
+  "other",
+];
 
 export default function EditStayScreen() {
-  return (
-    <View style={styles.container}>
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>
-          滞在の編集画面がここに表示されます
-        </Text>
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const db = useSQLiteContext();
+  const router = useRouter();
+
+  const [stay, setStay] = useState<Stay | null>(null);
+  const [editName, setEditName] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    const s = await getStayById(db, Number(id));
+    if (!s) {
+      Alert.alert("エラー", "この滞在が見つかりません");
+      router.back();
+      return;
+    }
+    setStay(s);
+    setEditName(s.user_place_name ?? "");
+    setSelectedActivity((s.activity as Activity) ?? null);
+  }, [db, id, router]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleSave = useCallback(async () => {
+    if (!stay) return;
+    setSaving(true);
+    try {
+      await updateStay(db, stay.id, {
+        user_place_name: editName.trim() || null,
+        activity: selectedActivity,
+        needs_review: false,
+      });
+      router.back();
+    } catch (e) {
+      Alert.alert("エラー", "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }, [db, stay, editName, selectedActivity, router]);
+
+  const handleReEnrich = useCallback(async () => {
+    if (!stay) return;
+    setEnriching(true);
+    try {
+      await enrichStay(db, stay);
+      await load();
+    } catch (e) {
+      Alert.alert("エラー", "再推定に失敗しました");
+    } finally {
+      setEnriching(false);
+    }
+  }, [db, stay, load]);
+
+  if (!stay) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>読み込み中...</Text>
       </View>
-    </View>
+    );
+  }
+
+  const place = parsePlaceJson(stay.place_json);
+
+  return (
+    <>
+      <Stack.Screen options={{ title: "滞在の編集", headerBackTitle: "戻る" }} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        {/* Time and Duration */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>時間</Text>
+          <View style={styles.timeRow}>
+            <Ionicons name="time-outline" size={20} color="#3b82f6" />
+            <Text style={styles.timeValue}>
+              {formatTime(stay.start_ts)} 〜 {formatTime(stay.end_ts)}
+            </Text>
+            <Text style={styles.durationValue}>
+              ({durationLabel(stay.start_ts, stay.end_ts)})
+            </Text>
+          </View>
+        </View>
+
+        {/* Place Info */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>場所情報</Text>
+            <Pressable onPress={handleReEnrich} disabled={enriching} style={styles.reEnrichBtn}>
+              <Ionicons name="refresh" size={14} color="#3b82f6" />
+              <Text style={styles.reEnrichText}>
+                {enriching ? "推定中..." : "再推定"}
+              </Text>
+            </Pressable>
+          </View>
+          {place.name && (
+            <View style={styles.placeRow}>
+              <Text style={styles.placeLabel}>検出場所</Text>
+              <Text style={styles.placeValue}>{place.name}</Text>
+            </View>
+          )}
+          {place.category && (
+            <View style={styles.placeRow}>
+              <Text style={styles.placeLabel}>カテゴリ</Text>
+              <Text style={styles.placeValue}>
+                {CATEGORY_LABELS[place.category] ?? place.category}
+              </Text>
+            </View>
+          )}
+          <View style={styles.placeRow}>
+            <Text style={styles.placeLabel}>座標</Text>
+            <Text style={styles.coordValue}>
+              {stay.lat.toFixed(5)}, {stay.lng.toFixed(5)}
+            </Text>
+          </View>
+          {place.count > 1 && (
+            <Text style={styles.placeNote}>
+              周辺に {place.count} 件の施設を検出
+            </Text>
+          )}
+        </View>
+
+        {/* Edit Place Name */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>場所名（カスタム）</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="例: 自宅、会社、〇〇カフェ..."
+            value={editName}
+            onChangeText={setEditName}
+            placeholderTextColor="#94a3b8"
+            returnKeyType="done"
+          />
+        </View>
+
+        {/* Activity Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>行動ラベル</Text>
+          <View style={styles.activityGrid}>
+            {ACTIVITY_OPTIONS.map((act) => (
+              <Pressable
+                key={act}
+                style={[
+                  styles.activityBtn,
+                  selectedActivity === act && styles.activityBtnActive,
+                ]}
+                onPress={() => setSelectedActivity(act)}
+              >
+                <Text
+                  style={[
+                    styles.activityBtnText,
+                    selectedActivity === act && styles.activityBtnTextActive,
+                  ]}
+                >
+                  {ACTIVITY_LABELS[act]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Needs Review Banner */}
+        {stay.needs_review && (
+          <View style={styles.reviewBanner}>
+            <Ionicons name="alert-circle" size={18} color="#d97706" />
+            <Text style={styles.reviewBannerText}>
+              この滞在は自動推定の確信度が低いため確認をお願いします
+            </Text>
+          </View>
+        )}
+
+        {/* Save Button */}
+        <Pressable
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={styles.saveBtnText}>
+            {saving ? "保存中..." : "保存する"}
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </>
   );
 }
 
@@ -17,14 +252,161 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8fafc",
   },
-  placeholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  placeholderText: {
+  loadingText: {
+    textAlign: "center",
+    marginTop: 80,
     fontSize: 15,
     color: "#94a3b8",
-    textAlign: "center",
+  },
+  section: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  timeValue: {
+    fontSize: 18,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+    color: "#0f172a",
+  },
+  durationValue: {
+    fontSize: 14,
+    color: "#94a3b8",
+  },
+  placeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#f1f5f9",
+  },
+  placeLabel: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+  placeValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#0f172a",
+  },
+  coordValue: {
+    fontSize: 13,
+    fontVariant: ["tabular-nums"],
+    color: "#94a3b8",
+  },
+  placeNote: {
+    fontSize: 12,
+    color: "#94a3b8",
+    marginTop: 6,
+  },
+  reEnrichBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#eff6ff",
+  },
+  reEnrichText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#3b82f6",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: "#0f172a",
+    backgroundColor: "#f8fafc",
+  },
+  activityGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  activityBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  activityBtnActive: {
+    backgroundColor: "#eff6ff",
+    borderColor: "#3b82f6",
+  },
+  activityBtnText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#64748b",
+  },
+  activityBtnTextActive: {
+    color: "#3b82f6",
+  },
+  reviewBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fffbeb",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#fef3c7",
+  },
+  reviewBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#92400e",
+    lineHeight: 18,
+  },
+  saveBtn: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  saveBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
   },
 });
