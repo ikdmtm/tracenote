@@ -21,6 +21,9 @@ const H = 1920 * SCALE;
 const SAFE_TOP = H * 0.14;
 const SAFE_BOTTOM = H * 0.14;
 
+const MAX_STAYS_NORMAL = 7;
+const MAX_STAYS_COMPACT = 10;
+
 export type ShareCardProps = {
   date: Date;
   stays: Stay[];
@@ -92,25 +95,22 @@ function getStayPhoto(stay: Stay, photoMap: Record<number, StayPhoto[]>): StayPh
   return photos.find((p) => p.uri && !p.uri.startsWith("ph://")) ?? null;
 }
 
-/**
- * Filter out home stays and adjacent movements involving home.
- */
 function buildShareTimeline(
   stays: Stay[],
   home: HomeLocation | null,
 ): { visibleStays: Stay[]; movementsBetween: Map<number, Movement> } {
   const nonHome = stays.filter((s) => !isHomeStay(s, home));
+
+  const nonHomeIds = new Set(nonHome.map((s) => s.id));
   const allMovements = estimateMovements(stays);
 
   const movementsBetween = new Map<number, Movement>();
   for (let i = 0; i < nonHome.length - 1; i++) {
-    const from = nonHome[i];
     const to = nonHome[i + 1];
     const move = allMovements.find(
-      (m) => m.from_stay_id === from.id || m.to_stay_id === to.id,
+      (m) => nonHomeIds.has(m.from_stay_id) && m.to_stay_id === to.id,
     );
-    if (move && !isHomeStay(stays.find((s) => s.id === move.from_stay_id)!, home) &&
-        !isHomeStay(stays.find((s) => s.id === move.to_stay_id)!, home)) {
+    if (move) {
       movementsBetween.set(to.id, move);
     }
   }
@@ -132,93 +132,106 @@ export const ShareCard = React.forwardRef<View, ShareCardProps>(
       (sum, s) => sum + (photoMap[s.id]?.length ?? 0), 0,
     );
 
-    const highlights = [...visibleStays]
-      .sort((a, b) => (b.end_ts - b.start_ts) - (a.end_ts - a.start_ts))
-      .slice(0, 5);
+    const totalVisible = visibleStays.length;
+    const compact = totalVisible > MAX_STAYS_NORMAL;
+    const maxDisplay = compact ? MAX_STAYS_COMPACT : MAX_STAYS_NORMAL;
+    const displayed = visibleStays.slice(0, maxDisplay);
+    const overflowCount = totalVisible - displayed.length;
+    const showMovements = !compact;
 
     return (
-      <View ref={ref} style={c.card} collapsable={false}>
-        <View style={c.bg} />
+      <View ref={ref} style={cs.card} collapsable={false}>
+        <View style={cs.bg} />
 
-        {/* Safe zone top spacer */}
         <View style={{ height: SAFE_TOP }} />
 
         {/* Date header */}
-        <View style={c.dateSection}>
-          <Text style={c.dateEn}>{formatDate(date)}</Text>
-          <Text style={c.dateJp}>{formatDateJp(date)}</Text>
+        <View style={cs.dateSection}>
+          <Text style={cs.dateEn}>{formatDate(date)}</Text>
+          <Text style={cs.dateJp}>{formatDateJp(date)}</Text>
         </View>
 
         {/* Stats */}
-        <View style={c.statsBar}>
-          <View style={c.statBox}>
-            <Text style={c.statNum}>{visibleStays.length}</Text>
-            <Text style={c.statUnit}>お出かけ</Text>
+        <View style={cs.statsBar}>
+          <View style={cs.statBox}>
+            <Text style={cs.statNum}>{totalVisible}</Text>
+            <Text style={cs.statUnit}>お出かけ</Text>
           </View>
-          <View style={c.statDiv} />
-          <View style={c.statBox}>
-            <Text style={c.statNum}>{formatDistance(totalDistanceM)}</Text>
-            <Text style={c.statUnit}>移動距離</Text>
+          <View style={cs.statDiv} />
+          <View style={cs.statBox}>
+            <Text style={cs.statNum}>{formatDistance(totalDistanceM)}</Text>
+            <Text style={cs.statUnit}>移動距離</Text>
           </View>
-          <View style={c.statDiv} />
-          <View style={c.statBox}>
-            <Text style={c.statNum}>{nonHomePhotos}</Text>
-            <Text style={c.statUnit}>写真</Text>
+          <View style={cs.statDiv} />
+          <View style={cs.statBox}>
+            <Text style={cs.statNum}>{nonHomePhotos}</Text>
+            <Text style={cs.statUnit}>写真</Text>
           </View>
         </View>
 
-        {/* Timeline */}
-        <View style={c.timeline}>
-          {highlights.map((stay, idx) => {
+        {/* Timeline - chronological order */}
+        <View style={cs.timeline}>
+          {displayed.map((stay, idx) => {
             const name = resolvePlaceName(stay);
             const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location";
             const photo = getStayPhoto(stay, photoMap);
             const move = movementsBetween.get(stay.id);
-            const isLast = idx === highlights.length - 1;
+            const isLast = idx === displayed.length - 1 && overflowCount === 0;
+
+            const dotSize = compact ? 22 : 26;
+            const iconSize = compact ? 11 : 14;
+            const nameSize = compact ? 12 : 14;
+            const durSize = compact ? 9 : 10;
+            const thumbSize = compact ? 30 : 36;
+            const pb = compact ? 3 : 6;
 
             return (
               <React.Fragment key={stay.id}>
-                {/* Movement between stays */}
-                {move && (
-                  <View style={c.moveRow}>
-                    <View style={c.tlTimeCol} />
-                    <View style={c.tlDotCol}>
-                      <View style={c.moveDotLine} />
+                {showMovements && move && (
+                  <View style={cs.moveRow}>
+                    <View style={cs.tlTimeCol} />
+                    <View style={cs.tlDotCol}>
+                      <View style={cs.moveDotLine} />
                     </View>
-                    <View style={c.moveContent}>
+                    <View style={cs.moveContent}>
                       <Ionicons
                         name={MOVEMENT_ICONS[move.mode] as any}
                         size={10}
                         color="rgba(255,255,255,0.35)"
                       />
-                      <Text style={c.moveText}>
+                      <Text style={cs.moveText}>
                         {MOVEMENT_LABELS[move.mode]} {formatDistance(move.distance_m)}
                       </Text>
                     </View>
                   </View>
                 )}
 
-                {/* Stay row */}
-                <View style={c.stayRow}>
-                  <View style={c.tlTimeCol}>
-                    <Text style={c.tlTime}>{formatTime(stay.start_ts)}</Text>
+                <View style={cs.stayRow}>
+                  <View style={cs.tlTimeCol}>
+                    <Text style={[cs.tlTime, { marginTop: compact ? 3 : 5 }]}>
+                      {formatTime(stay.start_ts)}
+                    </Text>
                   </View>
-                  <View style={c.tlDotCol}>
-                    <View style={c.dot}>
-                      <Ionicons name={icon as any} size={14} color="#ffffff" />
+                  <View style={cs.tlDotCol}>
+                    <View style={[cs.dot, { width: dotSize, height: dotSize, borderRadius: dotSize / 2 }]}>
+                      <Ionicons name={icon as any} size={iconSize} color="#ffffff" />
                     </View>
-                    {!isLast && <View style={c.dotLine} />}
+                    {!isLast && <View style={cs.dotLine} />}
                   </View>
-                  <View style={c.stayContent}>
-                    <View style={c.stayHeader}>
-                      <View style={c.stayInfo}>
-                        <Text style={c.stayName} numberOfLines={1}>{name}</Text>
-                        <Text style={c.stayDur}>{durationLabel(stay.start_ts, stay.end_ts)}</Text>
+                  <View style={[cs.stayContent, { paddingBottom: pb }]}>
+                    <View style={cs.stayHeader}>
+                      <View style={cs.stayInfo}>
+                        <Text style={[cs.stayName, { fontSize: nameSize }]} numberOfLines={1}>
+                          {name}
+                        </Text>
+                        <Text style={[cs.stayDur, { fontSize: durSize }]}>
+                          {durationLabel(stay.start_ts, stay.end_ts)}
+                        </Text>
                       </View>
                       {photo && (
                         <Image
                           source={{ uri: photo.uri }}
-                          style={c.stayThumb}
+                          style={[cs.stayThumb, { width: thumbSize, height: thumbSize }]}
                           resizeMode="cover"
                         />
                       )}
@@ -228,25 +241,42 @@ export const ShareCard = React.forwardRef<View, ShareCardProps>(
               </React.Fragment>
             );
           })}
+
+          {overflowCount > 0 && (
+            <View style={cs.overflowRow}>
+              <View style={cs.tlTimeCol} />
+              <View style={cs.tlDotCol}>
+                <View style={cs.overflowDots}>
+                  <View style={cs.overflowDot} />
+                  <View style={cs.overflowDot} />
+                  <View style={cs.overflowDot} />
+                </View>
+              </View>
+              <View style={cs.stayContent}>
+                <Text style={cs.overflowText}>
+                  ほか {overflowCount} 箇所
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* Footer branding - above safe zone bottom */}
-        <View style={c.footer}>
-          <View style={c.footerLine} />
-          <View style={c.brandRow}>
+        {/* Footer branding */}
+        <View style={cs.footer}>
+          <View style={cs.footerLine} />
+          <View style={cs.brandRow}>
             <Ionicons name="footsteps" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={c.brandText}>TraceNote</Text>
+            <Text style={cs.brandText}>TraceNote</Text>
           </View>
         </View>
 
-        {/* Safe zone bottom spacer */}
         <View style={{ height: SAFE_BOTTOM }} />
       </View>
     );
   },
 );
 
-const c = StyleSheet.create({
+const cs = StyleSheet.create({
   card: {
     width: W,
     height: H,
@@ -320,16 +350,12 @@ const c = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     fontWeight: "600",
     color: "rgba(255,255,255,0.45)",
-    marginTop: 5,
   },
   tlDotCol: {
     width: 26,
     alignItems: "center",
   },
   dot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
     backgroundColor: "#3b82f6",
     justifyContent: "center",
     alignItems: "center",
@@ -338,12 +364,11 @@ const c = StyleSheet.create({
     width: 2,
     flex: 1,
     backgroundColor: "rgba(255,255,255,0.1)",
-    minHeight: 12,
+    minHeight: 8,
   },
   stayContent: {
     flex: 1,
     paddingLeft: 10,
-    paddingBottom: 6,
   },
   stayHeader: {
     flexDirection: "row",
@@ -353,19 +378,15 @@ const c = StyleSheet.create({
     flex: 1,
   },
   stayName: {
-    fontSize: 14,
     fontWeight: "700",
     color: "#ffffff",
     marginTop: 2,
   },
   stayDur: {
-    fontSize: 10,
     color: "rgba(255,255,255,0.4)",
-    marginTop: 2,
+    marginTop: 1,
   },
   stayThumb: {
-    width: 36,
-    height: 36,
     borderRadius: 8,
     marginLeft: 8,
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -389,6 +410,27 @@ const c = StyleSheet.create({
   moveText: {
     fontSize: 9,
     color: "rgba(255,255,255,0.3)",
+  },
+  overflowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  overflowDots: {
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 4,
+  },
+  overflowDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  overflowText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    paddingLeft: 10,
   },
   footer: {
     paddingHorizontal: 24,
