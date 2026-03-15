@@ -14,6 +14,10 @@ import {
 import { DIARY } from "@/core/constants";
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
 import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
+import {
+  usePhotoPermission,
+  type PhotoPermissionState,
+} from "@/features/photos/usePhotoPermission";
 
 function parseTime(val: string): { h: number; m: number } {
   const [h, m] = val.split(":").map(Number);
@@ -101,6 +105,7 @@ export default function SettingsScreen() {
 
   const [dayEndTime, setDayEndTime] = useState<string>(DIARY.DEFAULT_DAY_END_TIME);
   const [genTime, setGenTime] = useState<string>(DIARY.DEFAULT_GENERATION_TIME);
+  const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
 
   useEffect(() => {
     (async () => {
@@ -158,6 +163,46 @@ export default function SettingsScreen() {
               updateGenTime(cycleMinute(genTime, d))
             }
           />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>パーミッション</Text>
+        <View style={styles.card}>
+          <View style={styles.menuRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>写真アクセス</Text>
+              <Text style={styles.settingDescription}>
+                滞在中の写真を自動で紐づけます
+              </Text>
+            </View>
+            {photoStatus === "granted" ? (
+              <View style={[styles.permBadge, { backgroundColor: "#dcfce7" }]}>
+                <Text style={[styles.permBadgeText, { color: "#16a34a" }]}>許可済み</Text>
+              </View>
+            ) : photoStatus === "limited" ? (
+              <Pressable
+                style={[styles.permBadge, { backgroundColor: "#fef3c7" }]}
+                onPress={openPhotoSettings}
+              >
+                <Text style={[styles.permBadgeText, { color: "#d97706" }]}>一部許可</Text>
+              </Pressable>
+            ) : photoStatus === "denied" ? (
+              <Pressable
+                style={[styles.permBadge, { backgroundColor: "#fee2e2" }]}
+                onPress={openPhotoSettings}
+              >
+                <Text style={[styles.permBadgeText, { color: "#dc2626" }]}>拒否</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.permBadge, { backgroundColor: "#eff6ff" }]}
+                onPress={requestPhotoPermission}
+              >
+                <Text style={[styles.permBadgeText, { color: "#3b82f6" }]}>許可する</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
 
@@ -366,6 +411,15 @@ const styles = StyleSheet.create({
   menuValue: {
     fontSize: 15,
     color: "#94a3b8",
+  },
+  permBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  permBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   version: {
     textAlign: "center",

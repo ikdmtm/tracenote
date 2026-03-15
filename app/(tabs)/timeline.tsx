@@ -12,9 +12,10 @@ import {
   View,
 } from "react-native";
 
-import type { RawEvent, Stay } from "@/core/domain/models";
+import type { RawEvent, Stay, StayPhoto } from "@/core/domain/models";
 import { getLatestRawEvents } from "@/core/storage/rawEventRepo";
 import { getTodayStays } from "@/core/storage/stayRepo";
+import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
 import { StayCard } from "@/features/stays/StayCard";
 
 type ViewMode = "stays" | "raw";
@@ -48,6 +49,7 @@ export default function TimelineScreen() {
   const db = useSQLiteContext();
   const [mode, setMode] = useState<ViewMode>("stays");
   const [stays, setStays] = useState<Stay[]>([]);
+  const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -58,6 +60,13 @@ export default function TimelineScreen() {
     ]);
     setStays(s);
     setEvents(e);
+
+    const pMap: Record<number, StayPhoto[]> = {};
+    for (const st of s) {
+      const photos = await getPhotosByStayId(db, st.id);
+      if (photos.length > 0) pMap[st.id] = photos;
+    }
+    setPhotoMap(pMap);
   }, [db]);
 
   useFocusEffect(
@@ -106,7 +115,7 @@ export default function TimelineScreen() {
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
               <View style={styles.stayCardWrapper}>
-                <StayCard stay={item} />
+                <StayCard stay={item} photos={photoMap[item.id]} />
               </View>
             )}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}

@@ -11,9 +11,10 @@ import {
   View,
 } from "react-native";
 
-import type { Stay } from "@/core/domain/models";
+import type { Stay, StayPhoto } from "@/core/domain/models";
 import { getRawEventCount } from "@/core/storage/rawEventRepo";
 import { getTodayStays } from "@/core/storage/stayRepo";
+import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
 import {
   startBackgroundLocation,
 } from "@/core/location/backgroundTask";
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const { status, loading, requestAlways, openSettings } = useLocationPermission();
   const [eventCount, setEventCount] = useState(0);
   const [stays, setStays] = useState<Stay[]>([]);
+  const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [bgStarted, setBgStarted] = useState(false);
 
@@ -52,6 +54,13 @@ export default function HomeScreen() {
     setEventCount(count);
     const todayStays = await getTodayStays(db);
     setStays(todayStays);
+
+    const pMap: Record<number, StayPhoto[]> = {};
+    for (const s of todayStays) {
+      const photos = await getPhotosByStayId(db, s.id);
+      if (photos.length > 0) pMap[s.id] = photos;
+    }
+    setPhotoMap(pMap);
   }, [db]);
 
   useFocusEffect(
@@ -132,7 +141,7 @@ export default function HomeScreen() {
         <FlatList
           data={stays}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <StayCard stay={item} />}
+          renderItem={({ item }) => <StayCard stay={item} photos={photoMap[item.id]} />}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           contentContainerStyle={styles.stayList}
           refreshControl={

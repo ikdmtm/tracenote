@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { Stay } from "@/core/domain/models";
+import type { Stay, StayPhoto } from "@/core/domain/models";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 
@@ -67,11 +67,20 @@ const ACTIVITY_ICON: Record<string, string> = {
   other: "location-outline",
 };
 
-export function StayCard({ stay }: { stay: Stay }) {
+const MAX_THUMBNAILS = 3;
+
+type StayCardProps = {
+  stay: Stay;
+  photos?: StayPhoto[];
+};
+
+export function StayCard({ stay, photos }: StayCardProps) {
   const router = useRouter();
   const displayName = resolveDisplayName(stay);
   const label = activityLabel(stay.activity);
   const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
+  const thumbs = (photos ?? []).slice(0, MAX_THUMBNAILS);
+  const extraCount = (photos?.length ?? 0) - MAX_THUMBNAILS;
 
   return (
     <Pressable
@@ -103,6 +112,23 @@ export function StayCard({ stay }: { stay: Stay }) {
             {durationLabel(stay.start_ts, stay.end_ts)}
           </Text>
         </View>
+
+        {thumbs.length > 0 && (
+          <View style={styles.photoRow}>
+            {thumbs.map((p) => (
+              <Image
+                key={p.id}
+                source={{ uri: p.uri }}
+                style={styles.thumbnail}
+              />
+            ))}
+            {extraCount > 0 && (
+              <View style={styles.extraBadge}>
+                <Text style={styles.extraText}>+{extraCount}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.footer}>
           <View style={styles.confRow}>
@@ -196,6 +222,31 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 13,
+    color: "#64748b",
+  },
+  photoRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+    alignItems: "center",
+  },
+  thumbnail: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: "#f1f5f9",
+  },
+  extraBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: "#f1f5f9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  extraText: {
+    fontSize: 12,
+    fontWeight: "600",
     color: "#64748b",
   },
   footer: {

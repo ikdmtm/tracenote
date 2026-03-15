@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,11 +14,13 @@ import {
   View,
 } from "react-native";
 
-import type { Stay } from "@/core/domain/models";
+import type { Stay, StayPhoto } from "@/core/domain/models";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 import { getStayById, updateStay } from "@/core/storage/stayRepo";
+import { getPhotosByStayId, insertStayPhoto, deleteStayPhoto } from "@/core/storage/stayPhotoRepo";
 import { enrichStay } from "@/core/engine/enrichService";
+import { matchPhotosForStay } from "@/core/photos/photoMatcher";
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -67,6 +71,7 @@ export default function EditStayScreen() {
   const router = useRouter();
 
   const [stay, setStay] = useState<Stay | null>(null);
+  const [photos, setPhotos] = useState<StayPhoto[]>([]);
   const [editName, setEditName] = useState("");
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [saving, setSaving] = useState(false);
@@ -83,6 +88,8 @@ export default function EditStayScreen() {
     setStay(s);
     setEditName(s.user_place_name ?? "");
     setSelectedActivity((s.activity as Activity) ?? null);
+    const p = await getPhotosByStayId(db, s.id);
+    setPhotos(p);
   }, [db, id, router]);
 
   useEffect(() => {
@@ -118,6 +125,56 @@ export default function EditStayScreen() {
       setEnriching(false);
     }
   }, [db, stay, load]);
+
+  const handleRemovePhoto = useCallback(async (photoId: number) => {
+    await deleteStayPhoto(db, photoId);
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+  }, [db]);
+
+  const handleReMatchPhotos = useCallback(async () => {
+    if (!stay) return;
+    try {
+      const matched = await matchPhotosForStay(stay);
+      const existingAssetIds = new Set(photos.map((p) => p.asset_id));
+      let added = 0;
+      for (const m of matched) {
+        if (!existingAssetIds.has(m.asset_id)) {
+          await insertStayPhoto(db, m);
+          added++;
+        }
+      }
+      if (added > 0) {
+        const p = await getPhotosByStayId(db, stay.id);
+        setPhotos(p);
+        Alert.alert("完了", `${added}枚の写真を追加しました`);
+      } else {
+        Alert.alert("結果", "新しい写真は見つかりませんでした");
+      }
+    } catch (e) {
+      Alert.alert("エラー", "写真の再マッチングに失敗しました");
+    }
+  }, [db, stay, photos]);
+
+  const handleAddFromLibrary = useCallback(async () => {
+    if (!stay) return;
+    const { status } = await MediaLibrary.getPermissionsAsync();
+    if (status !== MediaLibrary.PermissionStatus.GRANTED) {
+      Alert.alert("写真アクセスが必要", "設定から写真へのアクセスを許可してください。");
+      return;
+    }
+    // Fetch recent photos and let user see what's available
+    const recent = await MediaLibrary.getAssetsAsync({
+      mediaType: MediaLibrary.MediaType.photo,
+      sortBy: [MediaLibrary.SortBy.creationTime],
+      first: 50,
+    });
+    if (recent.assets.length === 0) {
+      Alert.alert("写真なし", "カメラロールに写真がありません");
+      return;
+    }
+    // For now, auto-match is the primary flow. Manual add is via re-match.
+    await handleReMatchPhotos();
+  }, [stay, handleReMatchPhotos]);
 
   if (!stay) {
     return (
@@ -222,6 +279,39 @@ export default function EditStayScreen() {
               </Pressable>
             ))}
           </View>
+        </View>
+
+        {/* Photos */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>写真</Text>
+            <Pressable onPress={handleReMatchPhotos} style={styles.reEnrichBtn}>
+              <Ionicons name="images-outline" size={14} color="#3b82f6" />
+              <Text style={styles.reEnrichText}>再マッチ</Text>
+            </Pressable>
+          </View>
+          {photos.length > 0 ? (
+            <View style={styles.photoGrid}>
+              {photos.map((p) => (
+                <View key={p.id} style={styles.photoItem}>
+                  <Image source={{ uri: p.uri }} style={styles.photoImage} />
+                  <Pressable
+                    style={styles.photoRemoveBtn}
+                    onPress={() => handleRemovePhoto(p.id)}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#ef4444" />
+                  </Pressable>
+                  <Text style={styles.photoTime}>
+                    {formatTime(p.taken_at)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.photoEmpty}>
+              この滞在に紐づく写真はありません
+            </Text>
+          )}
         </View>
 
         {/* Needs Review Banner */}
@@ -378,6 +468,39 @@ const styles = StyleSheet.create({
   },
   activityBtnTextActive: {
     color: "#3b82f6",
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoItem: {
+    position: "relative",
+  },
+  photoImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: "#f1f5f9",
+  },
+  photoRemoveBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+  },
+  photoTime: {
+    fontSize: 10,
+    color: "#94a3b8",
+    textAlign: "center",
+    marginTop: 2,
+  },
+  photoEmpty: {
+    fontSize: 13,
+    color: "#94a3b8",
+    textAlign: "center",
+    paddingVertical: 12,
   },
   reviewBanner: {
     flexDirection: "row",

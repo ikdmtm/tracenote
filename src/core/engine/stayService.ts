@@ -4,6 +4,8 @@ import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { detectStays } from "@/core/engine/stayDetector";
 import { enrichStays } from "@/core/engine/enrichService";
+import { matchPhotosForStays } from "@/core/photos/photoMatcher";
+import { syncStayPhotos } from "@/core/storage/stayPhotoRepo";
 
 /**
  * Run stay detection for a given time range.
@@ -37,6 +39,16 @@ export async function runStayDetection(
 
   const insertedStays = await getStaysByDay(db, startTs, endTs);
   await enrichStays(db, insertedStays);
+
+  // Auto-match photos from camera roll
+  try {
+    const photoMatches = await matchPhotosForStays(insertedStays);
+    for (const [stayId, photos] of photoMatches) {
+      await syncStayPhotos(db, stayId, photos);
+    }
+  } catch (e) {
+    console.warn("[StayService] Photo matching skipped:", e);
+  }
 
   return detected.length;
 }
