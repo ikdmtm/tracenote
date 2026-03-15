@@ -17,6 +17,10 @@ export default function RootLayout() {
           options={{ headerShown: true, title: "サマリー", presentation: "card" }}
         />
         <Stack.Screen
+          name="stay-detail"
+          options={{ headerShown: true, title: "滞在詳細", presentation: "card" }}
+        />
+        <Stack.Screen
           name="edit-stay"
           options={{
             headerShown: true,

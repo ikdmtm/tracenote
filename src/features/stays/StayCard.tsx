@@ -85,7 +85,7 @@ export function StayCard({ stay, photos }: StayCardProps) {
   return (
     <Pressable
       style={styles.card}
-      onPress={() => router.push({ pathname: "/edit-stay", params: { id: String(stay.id) } })}
+      onPress={() => router.push({ pathname: "/stay-detail", params: { id: String(stay.id) } })}
     >
       <View style={styles.timeColumn}>
         <Text style={styles.timeText}>{formatTime(stay.start_ts)}</Text>

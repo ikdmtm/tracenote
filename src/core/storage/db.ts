@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { DIARY } from "@/core/constants";
 import { MIGRATIONS } from "@/core/storage/schema";
+import { pruneOldRawEvents } from "@/core/storage/retention";
 
 export const DB_NAME = "tracenote.db";
 
@@ -14,6 +15,10 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   }
 
   await seedDefaults(db);
+
+  pruneOldRawEvents(db).then((n) => {
+    if (n > 0) console.log(`[Retention] Pruned ${n} old raw events`);
+  }).catch(() => {});
 }
 
 async function seedDefaults(db: SQLiteDatabase): Promise<void> {

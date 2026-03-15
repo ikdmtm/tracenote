@@ -1,15 +1,33 @@
+import * as MediaLibrary from "expo-media-library";
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import type { StayPhoto } from "@/core/domain/models";
+
+async function resolvePhUri(db: SQLiteDatabase, photo: StayPhoto): Promise<StayPhoto> {
+  if (!photo.uri || !photo.uri.startsWith("ph://")) return photo;
+  try {
+    const info = await MediaLibrary.getAssetInfoAsync(photo.asset_id);
+    if (info.localUri) {
+      await db.runAsync("UPDATE stay_photos SET uri = ? WHERE id = ?", [info.localUri, photo.id]);
+      return { ...photo, uri: info.localUri };
+    }
+  } catch {}
+  return photo;
+}
 
 export async function getPhotosByStayId(
   db: SQLiteDatabase,
   stayId: number,
 ): Promise<StayPhoto[]> {
-  return db.getAllAsync<StayPhoto>(
+  const photos = await db.getAllAsync<StayPhoto>(
     "SELECT * FROM stay_photos WHERE stay_id = ? ORDER BY taken_at ASC",
     [stayId],
   );
+  const resolved: StayPhoto[] = [];
+  for (const p of photos) {
+    resolved.push(await resolvePhUri(db, p));
+  }
+  return resolved;
 }
 
 export async function getPhotoCountByStayId(
