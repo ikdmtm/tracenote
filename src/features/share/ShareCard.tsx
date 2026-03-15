@@ -267,7 +267,7 @@ const s = StyleSheet.create({
   statNum: { fontSize: 16, fontWeight: "700", fontVariant: ["tabular-nums"], color: "#ffffff" },
   statUnit: { fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 2 },
   statDiv: { width: 1, backgroundColor: "rgba(255,255,255,0.1)" },
-  timeline: { flex: 1, paddingHorizontal: 24 },
+  timeline: { flex: 1, paddingHorizontal: 24, overflow: "hidden", marginBottom: 6 },
   stayRow: { flexDirection: "row", alignItems: "flex-start" },
   tlTimeCol: { width: 40, alignItems: "flex-end", paddingRight: 8 },
   tlTime: { fontSize: 10, fontVariant: ["tabular-nums"], fontWeight: "600", color: "rgba(255,255,255,0.45)", marginTop: 5 },
