@@ -30,12 +30,10 @@ const config: ExpoConfig = {
     "expo-sqlite",
     "expo-font",
     [
-      "expo-media-library",
-      {
-        photosPermission:
-          "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。",
-      },
+      "expo-location",
+      { locationAlwaysAndWhenInUsePermission: "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。" },
     ],
+    // expo-media-library: M4で追加
   ],
 };
 

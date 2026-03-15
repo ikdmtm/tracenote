@@ -1,3 +1,5 @@
+import "@/core/location/backgroundTask";
+
 import { Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
