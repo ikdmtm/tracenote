@@ -9,12 +9,17 @@ import { isHomeStay } from "@/core/engine/homeDetector";
 import {
   estimateMovements,
   MOVEMENT_LABELS,
+  MOVEMENT_ICONS,
+  type Movement,
 } from "@/core/engine/movementEstimator";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 
-const CARD_W = 1080;
-const CARD_H = 1920;
 const SCALE = 0.3;
+const W = 1080 * SCALE;
+const H = 1920 * SCALE;
+
+const SAFE_TOP = H * 0.14;
+const SAFE_BOTTOM = H * 0.14;
 
 export type ShareCardProps = {
   date: Date;
@@ -52,8 +57,7 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-function resolvePlaceName(stay: Stay, home: HomeLocation | null): string {
-  if (isHomeStay(stay, home)) return "自宅";
+function resolvePlaceName(stay: Stay): string {
   if (stay.user_place_name) return stay.user_place_name;
   if (stay.place_json) {
     try {
@@ -82,299 +86,329 @@ const ACTIVITY_ICON: Record<string, string> = {
   other: "location",
 };
 
-function findHeroPhoto(
-  stays: Stay[],
-  photoMap: Record<number, StayPhoto[]>,
-  home: HomeLocation | null,
-): StayPhoto | null {
-  for (const stay of stays) {
-    if (isHomeStay(stay, home)) continue;
-    const photos = photoMap[stay.id];
-    if (photos && photos.length > 0) {
-      const valid = photos.find((p) => p.uri && !p.uri.startsWith("ph://"));
-      if (valid) return valid;
-    }
-  }
-  return null;
+function getStayPhoto(stay: Stay, photoMap: Record<number, StayPhoto[]>): StayPhoto | null {
+  const photos = photoMap[stay.id];
+  if (!photos || photos.length === 0) return null;
+  return photos.find((p) => p.uri && !p.uri.startsWith("ph://")) ?? null;
 }
 
 /**
- * ShareCard rendered at 1080x1920 logical px, scaled down for preview.
- * The viewRef capture should use the unscaled version.
+ * Filter out home stays and adjacent movements involving home.
  */
+function buildShareTimeline(
+  stays: Stay[],
+  home: HomeLocation | null,
+): { visibleStays: Stay[]; movementsBetween: Map<number, Movement> } {
+  const nonHome = stays.filter((s) => !isHomeStay(s, home));
+  const allMovements = estimateMovements(stays);
+
+  const movementsBetween = new Map<number, Movement>();
+  for (let i = 0; i < nonHome.length - 1; i++) {
+    const from = nonHome[i];
+    const to = nonHome[i + 1];
+    const move = allMovements.find(
+      (m) => m.from_stay_id === from.id || m.to_stay_id === to.id,
+    );
+    if (move && !isHomeStay(stays.find((s) => s.id === move.from_stay_id)!, home) &&
+        !isHomeStay(stays.find((s) => s.id === move.to_stay_id)!, home)) {
+      movementsBetween.set(to.id, move);
+    }
+  }
+
+  return { visibleStays: nonHome, movementsBetween };
+}
+
 export const ShareCard = React.forwardRef<View, ShareCardProps>(
   ({ date, stays, photoMap, home }, ref) => {
-    const heroPhoto = findHeroPhoto(stays, photoMap, home);
-    const movements = estimateMovements(stays);
-    const totalDistanceM = movements.reduce((s, m) => s + m.distance_m, 0);
-    const totalPhotos = Object.values(photoMap).reduce((s, arr) => s + arr.length, 0);
+    const { visibleStays, movementsBetween } = buildShareTimeline(stays, home);
 
-    const highlights = [...stays]
-      .filter((s) => !isHomeStay(s, home))
+    const nonHomeMovements = estimateMovements(stays).filter((m) => {
+      const from = stays.find((s) => s.id === m.from_stay_id);
+      const to = stays.find((s) => s.id === m.to_stay_id);
+      return from && to && !isHomeStay(from, home) && !isHomeStay(to, home);
+    });
+    const totalDistanceM = nonHomeMovements.reduce((sum, m) => sum + m.distance_m, 0);
+    const nonHomePhotos = visibleStays.reduce(
+      (sum, s) => sum + (photoMap[s.id]?.length ?? 0), 0,
+    );
+
+    const highlights = [...visibleStays]
       .sort((a, b) => (b.end_ts - b.start_ts) - (a.end_ts - a.start_ts))
       .slice(0, 5);
 
     return (
-      <View ref={ref} style={s.card} collapsable={false}>
-        {/* Background gradient */}
-        <View style={s.bgGradient} />
+      <View ref={ref} style={c.card} collapsable={false}>
+        <View style={c.bg} />
 
-        {/* Hero photo area */}
-        {heroPhoto && heroPhoto.uri && (
-          <View style={s.heroWrap}>
-            <Image source={{ uri: heroPhoto.uri }} style={s.heroImage} resizeMode="cover" />
-            <View style={s.heroOverlay} />
-          </View>
-        )}
+        {/* Safe zone top spacer */}
+        <View style={{ height: SAFE_TOP }} />
 
-        {/* Top section - date */}
-        <View style={s.topSection}>
-          <Text style={s.dateEn}>{formatDate(date)}</Text>
-          <Text style={s.dateJp}>{formatDateJp(date)}</Text>
+        {/* Date header */}
+        <View style={c.dateSection}>
+          <Text style={c.dateEn}>{formatDate(date)}</Text>
+          <Text style={c.dateJp}>{formatDateJp(date)}</Text>
         </View>
 
-        {/* Stats bar */}
-        <View style={s.statsBar}>
-          <View style={s.statBox}>
-            <Text style={s.statNum}>{stays.length}</Text>
-            <Text style={s.statUnit}>滞在</Text>
+        {/* Stats */}
+        <View style={c.statsBar}>
+          <View style={c.statBox}>
+            <Text style={c.statNum}>{visibleStays.length}</Text>
+            <Text style={c.statUnit}>お出かけ</Text>
           </View>
-          <View style={s.statDivider} />
-          <View style={s.statBox}>
-            <Text style={s.statNum}>{formatDistance(totalDistanceM)}</Text>
-            <Text style={s.statUnit}>移動距離</Text>
+          <View style={c.statDiv} />
+          <View style={c.statBox}>
+            <Text style={c.statNum}>{formatDistance(totalDistanceM)}</Text>
+            <Text style={c.statUnit}>移動距離</Text>
           </View>
-          <View style={s.statDivider} />
-          <View style={s.statBox}>
-            <Text style={s.statNum}>{totalPhotos}</Text>
-            <Text style={s.statUnit}>写真</Text>
+          <View style={c.statDiv} />
+          <View style={c.statBox}>
+            <Text style={c.statNum}>{nonHomePhotos}</Text>
+            <Text style={c.statUnit}>写真</Text>
           </View>
         </View>
 
-        {/* Timeline highlights */}
-        <View style={s.timeline}>
+        {/* Timeline */}
+        <View style={c.timeline}>
           {highlights.map((stay, idx) => {
-            const name = resolvePlaceName(stay, home);
+            const name = resolvePlaceName(stay);
             const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location";
-            const moveAfter = movements.find((m) => m.from_stay_id === stay.id);
+            const photo = getStayPhoto(stay, photoMap);
+            const move = movementsBetween.get(stay.id);
+            const isLast = idx === highlights.length - 1;
 
             return (
               <React.Fragment key={stay.id}>
-                <View style={s.tlRow}>
-                  <View style={s.tlTimeCol}>
-                    <Text style={s.tlTime}>{formatTime(stay.start_ts)}</Text>
-                  </View>
-                  <View style={s.tlDotCol}>
-                    <View style={s.tlDot}>
-                      <Ionicons name={icon as any} size={16} color="#ffffff" />
+                {/* Movement between stays */}
+                {move && (
+                  <View style={c.moveRow}>
+                    <View style={c.tlTimeCol} />
+                    <View style={c.tlDotCol}>
+                      <View style={c.moveDotLine} />
                     </View>
-                    {idx < highlights.length - 1 && <View style={s.tlLine} />}
-                  </View>
-                  <View style={s.tlContent}>
-                    <Text style={s.tlName} numberOfLines={1}>{name}</Text>
-                    <Text style={s.tlDuration}>{durationLabel(stay.start_ts, stay.end_ts)}</Text>
-                  </View>
-                </View>
-                {moveAfter && idx < highlights.length - 1 && (
-                  <View style={s.tlMoveRow}>
-                    <View style={s.tlTimeCol} />
-                    <View style={s.tlDotCol}>
-                      <View style={s.tlMoveLine} />
-                    </View>
-                    <View style={s.tlMoveContent}>
-                      <Text style={s.tlMoveText}>
-                        {MOVEMENT_LABELS[moveAfter.mode]} {formatDistance(moveAfter.distance_m)}
+                    <View style={c.moveContent}>
+                      <Ionicons
+                        name={MOVEMENT_ICONS[move.mode] as any}
+                        size={10}
+                        color="rgba(255,255,255,0.35)"
+                      />
+                      <Text style={c.moveText}>
+                        {MOVEMENT_LABELS[move.mode]} {formatDistance(move.distance_m)}
                       </Text>
                     </View>
                   </View>
                 )}
+
+                {/* Stay row */}
+                <View style={c.stayRow}>
+                  <View style={c.tlTimeCol}>
+                    <Text style={c.tlTime}>{formatTime(stay.start_ts)}</Text>
+                  </View>
+                  <View style={c.tlDotCol}>
+                    <View style={c.dot}>
+                      <Ionicons name={icon as any} size={14} color="#ffffff" />
+                    </View>
+                    {!isLast && <View style={c.dotLine} />}
+                  </View>
+                  <View style={c.stayContent}>
+                    <View style={c.stayHeader}>
+                      <View style={c.stayInfo}>
+                        <Text style={c.stayName} numberOfLines={1}>{name}</Text>
+                        <Text style={c.stayDur}>{durationLabel(stay.start_ts, stay.end_ts)}</Text>
+                      </View>
+                      {photo && (
+                        <Image
+                          source={{ uri: photo.uri }}
+                          style={c.stayThumb}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </View>
+                  </View>
+                </View>
               </React.Fragment>
             );
           })}
         </View>
 
-        {/* Footer branding */}
-        <View style={s.footer}>
-          <View style={s.footerLine} />
-          <View style={s.brandRow}>
-            <Ionicons name="footsteps" size={18} color="rgba(255,255,255,0.6)" />
-            <Text style={s.brandText}>TraceNote</Text>
+        {/* Footer branding - above safe zone bottom */}
+        <View style={c.footer}>
+          <View style={c.footerLine} />
+          <View style={c.brandRow}>
+            <Ionicons name="footsteps" size={16} color="rgba(255,255,255,0.5)" />
+            <Text style={c.brandText}>TraceNote</Text>
           </View>
         </View>
+
+        {/* Safe zone bottom spacer */}
+        <View style={{ height: SAFE_BOTTOM }} />
       </View>
     );
   },
 );
 
-const s = StyleSheet.create({
+const c = StyleSheet.create({
   card: {
-    width: CARD_W * SCALE,
-    height: CARD_H * SCALE,
+    width: W,
+    height: H,
     backgroundColor: "#0f172a",
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: "hidden",
-    position: "relative",
   },
-  bgGradient: {
+  bg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#0f172a",
   },
-  heroWrap: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: CARD_H * SCALE * 0.4,
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,23,42,0.55)",
-  },
-  topSection: {
+  dateSection: {
     paddingHorizontal: 24,
-    paddingTop: 32,
-    zIndex: 1,
+    marginBottom: 14,
   },
   dateEn: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 2,
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(255,255,255,0.4)",
     textTransform: "uppercase",
   },
   dateJp: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
     color: "#ffffff",
-    marginTop: 4,
+    marginTop: 3,
   },
   statsBar: {
     flexDirection: "row",
     marginHorizontal: 24,
-    marginTop: 20,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
-    paddingVertical: 12,
-    zIndex: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginBottom: 14,
   },
   statBox: {
     flex: 1,
     alignItems: "center",
   },
   statNum: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
     color: "#ffffff",
   },
   statUnit: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.5)",
+    fontSize: 9,
+    color: "rgba(255,255,255,0.4)",
     marginTop: 2,
   },
-  statDivider: {
+  statDiv: {
     width: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   timeline: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
-    zIndex: 1,
   },
-  tlRow: {
+  stayRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 4,
   },
   tlTimeCol: {
-    width: 44,
+    width: 40,
     alignItems: "flex-end",
-    paddingRight: 10,
+    paddingRight: 8,
   },
   tlTime: {
-    fontSize: 11,
+    fontSize: 10,
     fontVariant: ["tabular-nums"],
     fontWeight: "600",
-    color: "rgba(255,255,255,0.5)",
-    marginTop: 4,
+    color: "rgba(255,255,255,0.45)",
+    marginTop: 5,
   },
   tlDotCol: {
-    width: 28,
+    width: 26,
     alignItems: "center",
   },
-  tlDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  dot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#3b82f6",
     justifyContent: "center",
     alignItems: "center",
   },
-  tlLine: {
+  dotLine: {
     width: 2,
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    minHeight: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    minHeight: 12,
   },
-  tlContent: {
+  stayContent: {
     flex: 1,
     paddingLeft: 10,
+    paddingBottom: 6,
   },
-  tlName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-    marginTop: 3,
-  },
-  tlDuration: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.45)",
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  tlMoveRow: {
+  stayHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
   },
-  tlMoveLine: {
-    width: 2,
-    height: 16,
+  stayInfo: {
+    flex: 1,
+  },
+  stayName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginTop: 2,
+  },
+  stayDur: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 2,
+  },
+  stayThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    marginLeft: 8,
     backgroundColor: "rgba(255,255,255,0.08)",
-    alignSelf: "center",
   },
-  tlMoveContent: {
+  moveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  moveDotLine: {
+    width: 2,
+    height: 14,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  moveContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingLeft: 10,
   },
-  tlMoveText: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.35)",
+  moveText: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
-    zIndex: 1,
+    paddingBottom: 4,
   },
   footerLine: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginBottom: 10,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
   },
   brandText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.5)",
   },
 });

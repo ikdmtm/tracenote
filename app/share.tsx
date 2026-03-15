@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,6 +33,7 @@ function formatTitle(date: Date): string {
 export default function ShareScreen() {
   const { dayKey } = useLocalSearchParams<{ dayKey: string }>();
   const db = useSQLiteContext();
+  const router = useRouter();
   const cardRef = useRef<View>(null);
 
   const [stays, setStays] = useState<Stay[]>([]);
@@ -99,10 +100,19 @@ export default function ShareScreen() {
     }
   }, [date]);
 
+  const closeBtn = useCallback(
+    () => (
+      <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Ionicons name="close" size={24} color="#64748b" />
+      </Pressable>
+    ),
+    [router],
+  );
+
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る" }} />
+        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#3b82f6" />
         </View>
@@ -113,7 +123,7 @@ export default function ShareScreen() {
   if (stays.length === 0) {
     return (
       <>
-        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る" }} />
+        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
         <View style={styles.center}>
           <Ionicons name="calendar-outline" size={48} color="#cbd5e1" />
           <Text style={styles.emptyText}>この日の滞在データがありません</Text>
@@ -124,7 +134,7 @@ export default function ShareScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: `${formatTitle(date)}のシェア`, headerBackTitle: "戻る" }} />
+      <Stack.Screen options={{ title: `${formatTitle(date)}のシェア`, headerBackTitle: "戻る", headerRight: closeBtn }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.hint}>プレビュー</Text>
 
@@ -139,7 +149,8 @@ export default function ShareScreen() {
         </View>
 
         <Text style={styles.note}>
-          ※ 自宅と判定された滞在は「自宅」と表示され、座標は共有されません
+          ※ 自宅と判定された滞在は自動的に非表示になります{"\n"}
+          座標情報は画像に含まれません
         </Text>
 
         <Pressable
