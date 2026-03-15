@@ -20,7 +20,6 @@ import { distanceM } from "@/core/engine/geo";
 import {
   getHomeLocation,
   refreshHomeLocation,
-  isHomeStay,
   type HomeLocation,
 } from "@/core/engine/homeDetector";
 import { getStaysByDay } from "@/core/storage/stayRepo";
@@ -28,7 +27,6 @@ import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
 import {
   ShareCardPage,
   splitIntoPages,
-  type PageSlice,
 } from "@/features/share/ShareCard";
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -83,20 +81,20 @@ export default function ShareScreen() {
     })();
   }, [db, dayKey]);
 
-  const { visibleStays, pages } = splitIntoPages(stays, home);
+  const pages = splitIntoPages(stays);
 
   const totalDistanceM = (() => {
     let total = 0;
-    for (let i = 0; i < visibleStays.length - 1; i++) {
+    for (let i = 0; i < stays.length - 1; i++) {
       total += distanceM(
-        visibleStays[i].lat, visibleStays[i].lng,
-        visibleStays[i + 1].lat, visibleStays[i + 1].lng,
+        stays[i].lat, stays[i].lng,
+        stays[i + 1].lat, stays[i + 1].lng,
       );
     }
     return Math.round(total);
   })();
 
-  const totalPhotos = visibleStays.reduce(
+  const totalPhotos = stays.reduce(
     (sum, s) => sum + (photoMap[s.id]?.length ?? 0), 0,
   );
 
@@ -200,9 +198,8 @@ export default function ShareScreen() {
                   date={date}
                   page={item}
                   photoMap={photoMap}
-                  allStays={stays}
                   home={home}
-                  totalStays={visibleStays.length}
+                  totalStays={stays.length}
                   totalDistanceM={totalDistanceM}
                   totalPhotos={totalPhotos}
                 />
@@ -224,8 +221,8 @@ export default function ShareScreen() {
         )}
 
         <Text style={styles.note}>
-          ※ 自宅と判定された滞在は自動的に非表示{"\n"}
-          座標情報は画像に含まれません
+          ※ 座標・住所は画像に含まれません{"\n"}
+          自宅は「自宅」とのみ表示されます
         </Text>
 
         <Pressable
