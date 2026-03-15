@@ -109,7 +109,7 @@ export default function SettingsScreen() {
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
   const { status: photoStatus, request: requestPhotoPermission, openSettings: openPhotoSettings } = usePhotoPermission();
-  const { isPro, purchase, restore } = useSubscription();
+  const { isPro, purchase, restore, toggleDevPro } = useSubscription();
 
   useEffect(() => {
     (async () => {
@@ -333,6 +333,17 @@ export default function SettingsScreen() {
           >
             <Text style={styles.menuLabel}>購入を復元</Text>
           </Pressable>
+          {__DEV__ && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.menuRow}>
+                <Text style={[styles.menuLabel, { color: "#f59e0b" }]}>
+                  🛠 Dev: Pro切替
+                </Text>
+                <Switch value={isPro} onValueChange={toggleDevPro} />
+              </View>
+            </>
+          )}
         </View>
       </View>
 

@@ -14,6 +14,7 @@ type SubscriptionState = {
   loading: boolean;
   purchase: () => Promise<boolean>;
   restore: () => Promise<boolean>;
+  toggleDevPro: () => void;
 };
 
 const SubscriptionContext = createContext<SubscriptionState>({
@@ -21,6 +22,7 @@ const SubscriptionContext = createContext<SubscriptionState>({
   loading: true,
   purchase: async () => false,
   restore: async () => false,
+  toggleDevPro: () => {},
 });
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -60,8 +62,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const toggleDevPro = useCallback(() => {
+    setIsPro((prev) => !prev);
+  }, []);
+
   return (
-    <SubscriptionContext.Provider value={{ isPro, loading, purchase, restore }}>
+    <SubscriptionContext.Provider value={{ isPro, loading, purchase, restore, toggleDevPro }}>
       {children}
     </SubscriptionContext.Provider>
   );
