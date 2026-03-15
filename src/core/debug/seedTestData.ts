@@ -25,6 +25,11 @@ export async function seedTestDay(
   baseDate.setDate(baseDate.getDate() - dayOffset);
   baseDate.setHours(0, 0, 0, 0);
   const dayStart = baseDate.getTime();
+  const dayEnd = dayStart + 24 * 60 * 60_000;
+
+  // Clear existing data for this day to avoid duplicates
+  await db.runAsync("DELETE FROM stays WHERE start_ts >= ? AND start_ts < ?", [dayStart, dayEnd]);
+  await db.runAsync("DELETE FROM raw_events WHERE ts >= ? AND ts < ?", [dayStart, dayEnd]);
 
   // Locations are 300m+ apart to ensure separate stay detection
   const scenario: FakeStay[] = [
@@ -80,7 +85,6 @@ export async function seedTestDay(
     }
   }
 
-  const dayEnd = dayStart + 24 * 60 * 60_000;
   const stayCount = await runStayDetection(db, dayStart, dayEnd);
 
   return { events: eventCount, stays: stayCount };

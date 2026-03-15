@@ -1,42 +1,6 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import type { Stay } from "@/core/domain/models";
-import type { DetectedStay } from "@/core/engine/stayDetector";
-
-export async function insertStay(
-  db: SQLiteDatabase,
-  stay: DetectedStay,
-): Promise<number> {
-  const result = await db.runAsync(
-    `INSERT INTO stays (start_ts, end_ts, lat, lng, radius_m, confidence, needs_review)
-     VALUES (?, ?, ?, ?, ?, ?, 0)`,
-    [stay.start_ts, stay.end_ts, stay.lat, stay.lng, stay.radius_m, stay.confidence],
-  );
-  return result.lastInsertRowId;
-}
-
-export async function upsertStays(
-  db: SQLiteDatabase,
-  stays: DetectedStay[],
-): Promise<void> {
-  for (const stay of stays) {
-    const existing = await db.getFirstAsync<{ id: number }>(
-      `SELECT id FROM stays
-       WHERE ABS(start_ts - ?) < 60000 AND ABS(end_ts - ?) < 60000`,
-      [stay.start_ts, stay.end_ts],
-    );
-
-    if (existing) {
-      await db.runAsync(
-        `UPDATE stays SET lat = ?, lng = ?, radius_m = ?, confidence = ?, end_ts = ?
-         WHERE id = ?`,
-        [stay.lat, stay.lng, stay.radius_m, stay.confidence, stay.end_ts, existing.id],
-      );
-    } else {
-      await insertStay(db, stay);
-    }
-  }
-}
 
 export async function getStaysByDay(
   db: SQLiteDatabase,
@@ -57,6 +21,19 @@ export async function getTodayStays(
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   return getStaysByDay(db, startOfDay, Date.now() + 1);
+}
+
+export async function getStayById(
+  db: SQLiteDatabase,
+  id: number,
+): Promise<Stay | null> {
+  type StayRow = Omit<Stay, "needs_review"> & { needs_review: number };
+  const row = await db.getFirstAsync<StayRow>(
+    "SELECT * FROM stays WHERE id = ?",
+    [id],
+  );
+  if (!row) return null;
+  return { ...row, needs_review: Boolean(row.needs_review) };
 }
 
 export async function updateStay(

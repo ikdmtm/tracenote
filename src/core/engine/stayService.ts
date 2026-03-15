@@ -1,12 +1,11 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
-import { upsertStays } from "@/core/storage/stayRepo";
 import { detectStays } from "@/core/engine/stayDetector";
 
 /**
  * Run stay detection for a given time range.
- * Fetches raw events, runs the detector, and upserts results to DB.
+ * Deletes existing stays in the range and replaces with fresh detection.
  */
 export async function runStayDetection(
   db: SQLiteDatabase,
@@ -17,9 +16,22 @@ export async function runStayDetection(
   if (events.length < 2) return 0;
 
   const detected = detectStays(events);
+
+  await db.runAsync(
+    "DELETE FROM stays WHERE start_ts >= ? AND start_ts < ?",
+    [startTs, endTs],
+  );
+
   if (detected.length === 0) return 0;
 
-  await upsertStays(db, detected);
+  for (const stay of detected) {
+    await db.runAsync(
+      `INSERT INTO stays (start_ts, end_ts, lat, lng, radius_m, confidence, needs_review)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      [stay.start_ts, stay.end_ts, stay.lat, stay.lng, stay.radius_m, stay.confidence],
+    );
+  }
+
   return detected.length;
 }
 
