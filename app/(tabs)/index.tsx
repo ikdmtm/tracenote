@@ -269,7 +269,7 @@ export default function HomeScreen() {
             <Text style={[styles.movementText, isEdited && styles.movementTextEdited]}>
               {label} {formatDuration(m.duration_min)} · {formatDistance(m.distance_m)}
             </Text>
-            <Ionicons name="pencil-outline" size={10} color={isEdited ? "#3b82f6" : "#94a3b8"} />
+            {isEdited && <Ionicons name="pencil-outline" size={10} color="#3b82f6" />}
           </View>
           <View style={styles.movementLine} />
         </Pressable>
