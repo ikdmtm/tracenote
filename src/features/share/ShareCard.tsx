@@ -17,8 +17,8 @@ const H = 1920 * SCALE;
 const SAFE_TOP = H * 0.14;
 const SAFE_BOTTOM = H * 0.14;
 
-const STAYS_PER_FIRST_PAGE = 5;
-const STAYS_PER_NEXT_PAGE = 7;
+const STAYS_PER_FIRST_PAGE = 7;
+const STAYS_PER_NEXT_PAGE = 10;
 
 /* ─── Helpers ─── */
 
@@ -43,7 +43,7 @@ function fmtDuration(startTs: number, endTs: number): string {
   if (mins < 60) return `${mins}分`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m > 0 ? `${h}h${m}m` : `${h}h`;
+  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
 }
 
 function fmtDist(meters: number): string {
@@ -86,6 +86,7 @@ export type PageSlice = {
   staysSlice: Stay[];
   isFirst: boolean;
   hasNextPage: boolean;
+  hasPrevPage: boolean;
   prevPageLastStay: Stay | null;
 };
 
@@ -102,6 +103,7 @@ export function splitIntoPages(stays: Stay[]): PageSlice[] {
     staysSlice: stays.slice(0, firstCount),
     isFirst: true,
     hasNextPage: false,
+    hasPrevPage: false,
     prevPageLastStay: null,
   });
   offset = firstCount;
@@ -114,6 +116,7 @@ export function splitIntoPages(stays: Stay[]): PageSlice[] {
       staysSlice: stays.slice(offset, offset + count),
       isFirst: false,
       hasNextPage: false,
+      hasPrevPage: true,
       prevPageLastStay: stays[offset - 1],
     });
     offset += count;
@@ -141,7 +144,7 @@ export type ShareCardPageProps = {
 
 export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
   ({ date, page, photoMap, home, totalStays, totalDistanceM, totalPhotos }, ref) => {
-    const { staysSlice, isFirst, pageIdx, totalPages, hasNextPage } = page;
+    const { staysSlice, isFirst, pageIdx, totalPages, hasNextPage, hasPrevPage } = page;
     const multiPage = totalPages > 1;
 
     return (
@@ -186,6 +189,15 @@ export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
 
         {/* Timeline */}
         <View style={s.timeline}>
+          {hasPrevPage && (
+            <View style={s.stayRow}>
+              <View style={s.tlTimeCol} />
+              <View style={s.tlDotCol}>
+                <View style={s.continueLine} />
+              </View>
+              <View style={s.stayContent} />
+            </View>
+          )}
           {staysSlice.map((stay, idx) => {
             const name = sharePlaceName(stay, home);
             const icon = ACT_ICON[stay.activity ?? ""] ?? "location";
@@ -263,6 +275,7 @@ const s = StyleSheet.create({
   dot: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#3b82f6", justifyContent: "center", alignItems: "center" },
   dotHome: { backgroundColor: "#475569" },
   dotLine: { width: 2, flex: 1, backgroundColor: "rgba(255,255,255,0.1)", minHeight: 10 },
+  continueLine: { width: 2, height: 16, backgroundColor: "rgba(255,255,255,0.1)" },
   stayContent: { flex: 1, paddingLeft: 10, paddingBottom: 6 },
   stayHeader: { flexDirection: "row", alignItems: "center" },
   stayInfo: { flex: 1 },
