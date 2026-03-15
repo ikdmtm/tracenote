@@ -6,12 +6,6 @@ import type { Stay, StayPhoto } from "@/core/domain/models";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import type { HomeLocation } from "@/core/engine/homeDetector";
 import { isHomeStay } from "@/core/engine/homeDetector";
-import { distanceM } from "@/core/engine/geo";
-import {
-  MOVEMENT_LABELS,
-  MOVEMENT_ICONS,
-  type MovementMode,
-} from "@/core/engine/movementEstimator";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 
 /* ─── Layout ─── */
@@ -57,14 +51,6 @@ function fmtDist(meters: number): string {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-function classifySpeed(kmh: number): MovementMode {
-  if (kmh <= 0) return "unknown";
-  if (kmh <= 6) return "walk";
-  if (kmh <= 25) return "bicycle";
-  if (kmh <= 300) return "vehicle";
-  return "unknown";
-}
-
 /** Resolve place name for ShareCard. Home stays always show "自宅". */
 function sharePlaceName(stay: Stay, home: HomeLocation | null): string {
   if (isHomeStay(stay, home)) return "自宅";
@@ -92,19 +78,6 @@ function stayPhoto(stay: Stay, photoMap: Record<number, StayPhoto[]>): StayPhoto
   return list.find((p) => p.uri && !p.uri.startsWith("ph://")) ?? null;
 }
 
-/* ─── Movement ─── */
-
-type MoveInfo = { mode: MovementMode; dist: number; dur: number };
-
-function calcMove(from: Stay, to: Stay): MoveInfo {
-  const dist = Math.round(distanceM(from.lat, from.lng, to.lat, to.lng));
-  const durMs = to.start_ts - from.end_ts;
-  const durMin = Math.max(1, Math.round(durMs / 60_000));
-  const durH = durMs / 3_600_000;
-  const speed = durH > 0 ? (dist / 1000) / durH : 0;
-  return { mode: classifySpeed(speed), dist, dur: durMin };
-}
-
 /* ─── Page splitting (all stays, no home exclusion) ─── */
 
 export type PageSlice = {
@@ -112,6 +85,7 @@ export type PageSlice = {
   totalPages: number;
   staysSlice: Stay[];
   isFirst: boolean;
+  hasNextPage: boolean;
   prevPageLastStay: Stay | null;
 };
 
@@ -127,6 +101,7 @@ export function splitIntoPages(stays: Stay[]): PageSlice[] {
     pageIdx, totalPages: 0,
     staysSlice: stays.slice(0, firstCount),
     isFirst: true,
+    hasNextPage: false,
     prevPageLastStay: null,
   });
   offset = firstCount;
@@ -138,13 +113,17 @@ export function splitIntoPages(stays: Stay[]): PageSlice[] {
       pageIdx, totalPages: 0,
       staysSlice: stays.slice(offset, offset + count),
       isFirst: false,
+      hasNextPage: false,
       prevPageLastStay: stays[offset - 1],
     });
     offset += count;
     pageIdx++;
   }
 
-  for (const p of pages) p.totalPages = pages.length;
+  for (let i = 0; i < pages.length; i++) {
+    pages[i].totalPages = pages.length;
+    pages[i].hasNextPage = i < pages.length - 1;
+  }
   return pages;
 }
 
@@ -162,7 +141,7 @@ export type ShareCardPageProps = {
 
 export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
   ({ date, page, photoMap, home, totalStays, totalDistanceM, totalPhotos }, ref) => {
-    const { staysSlice, isFirst, pageIdx, totalPages, prevPageLastStay } = page;
+    const { staysSlice, isFirst, pageIdx, totalPages, hasNextPage } = page;
     const multiPage = totalPages > 1;
 
     return (
@@ -212,58 +191,35 @@ export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
             const icon = ACT_ICON[stay.activity ?? ""] ?? "location";
             const photo = stayPhoto(stay, photoMap);
             const isLast = idx === staysSlice.length - 1;
-
-            const prevStay = idx > 0 ? staysSlice[idx - 1] : prevPageLastStay;
-            const move = prevStay ? calcMove(prevStay, stay) : null;
+            const showLine = !isLast || hasNextPage;
 
             return (
-              <React.Fragment key={stay.id}>
-                {move && (
-                  <View style={s.moveRow}>
-                    <View style={s.tlTimeCol} />
-                    <View style={s.tlDotCol}>
-                      <View style={s.moveLine} />
+              <View key={stay.id} style={s.stayRow}>
+                <View style={s.tlTimeCol}>
+                  <Text style={s.tlTime}>{fmtTime(stay.start_ts)}</Text>
+                </View>
+                <View style={s.tlDotCol}>
+                  <View style={[s.dot, isHomeStay(stay, home) && s.dotHome]}>
+                    <Ionicons name={icon as any} size={14} color="#ffffff" />
+                  </View>
+                  {showLine && <View style={s.dotLine} />}
+                </View>
+                <View style={s.stayContent}>
+                  <View style={s.stayHeader}>
+                    <View style={s.stayInfo}>
+                      <Text style={s.stayName} numberOfLines={1}>{name}</Text>
+                      <Text style={s.stayDur}>{fmtDuration(stay.start_ts, stay.end_ts)}</Text>
                     </View>
-                    <View style={s.moveContent}>
-                      <Ionicons
-                        name={MOVEMENT_ICONS[move.mode] as any}
-                        size={10}
-                        color="rgba(255,255,255,0.35)"
+                    {photo && !isHomeStay(stay, home) && (
+                      <Image
+                        source={{ uri: photo.uri }}
+                        style={s.stayThumb}
+                        resizeMode="cover"
                       />
-                      <Text style={s.moveText}>
-                        {MOVEMENT_LABELS[move.mode]} {fmtDist(move.dist)}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                <View style={s.stayRow}>
-                  <View style={s.tlTimeCol}>
-                    <Text style={s.tlTime}>{fmtTime(stay.start_ts)}</Text>
-                  </View>
-                  <View style={s.tlDotCol}>
-                    <View style={[s.dot, isHomeStay(stay, home) && s.dotHome]}>
-                      <Ionicons name={icon as any} size={14} color="#ffffff" />
-                    </View>
-                    {!isLast && <View style={s.dotLine} />}
-                  </View>
-                  <View style={s.stayContent}>
-                    <View style={s.stayHeader}>
-                      <View style={s.stayInfo}>
-                        <Text style={s.stayName} numberOfLines={1}>{name}</Text>
-                        <Text style={s.stayDur}>{fmtDuration(stay.start_ts, stay.end_ts)}</Text>
-                      </View>
-                      {photo && !isHomeStay(stay, home) && (
-                        <Image
-                          source={{ uri: photo.uri }}
-                          style={s.stayThumb}
-                          resizeMode="cover"
-                        />
-                      )}
-                    </View>
+                    )}
                   </View>
                 </View>
-              </React.Fragment>
+              </View>
             );
           })}
         </View>
@@ -313,10 +269,6 @@ const s = StyleSheet.create({
   stayName: { fontSize: 14, fontWeight: "700", color: "#ffffff", marginTop: 2 },
   stayDur: { fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 },
   stayThumb: { width: 36, height: 36, borderRadius: 8, marginLeft: 8, backgroundColor: "rgba(255,255,255,0.08)" },
-  moveRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
-  moveLine: { width: 2, height: 14, backgroundColor: "rgba(255,255,255,0.06)" },
-  moveContent: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 10 },
-  moveText: { fontSize: 9, color: "rgba(255,255,255,0.3)" },
   footer: { paddingHorizontal: 24, paddingBottom: 4 },
   footerLine: { height: 1, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 10 },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },

@@ -82,7 +82,19 @@ export async function refreshHomeLocation(db: SQLiteDatabase): Promise<HomeLocat
   return home;
 }
 
-export function isHomeStay(stay: { lat: number; lng: number }, home: HomeLocation | null): boolean {
+const NON_HOME_ACTIVITIES = new Set([
+  "meal", "workout", "work", "commute", "shopping", "outing",
+]);
+
+/**
+ * Check if a stay is "home". Coordinate-based (within 200m of detected home),
+ * but respects explicit activity labels — a restaurant near home is NOT home.
+ */
+export function isHomeStay(
+  stay: { lat: number; lng: number; activity?: string | null },
+  home: HomeLocation | null,
+): boolean {
   if (!home) return false;
+  if (stay.activity && NON_HOME_ACTIVITIES.has(stay.activity)) return false;
   return haversineM(stay.lat, stay.lng, home.lat, home.lng) <= CLUSTER_RADIUS_M;
 }
