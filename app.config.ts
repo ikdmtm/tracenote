@@ -21,12 +21,21 @@ const config: ExpoConfig = {
         "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。",
       NSLocationAlwaysUsageDescription:
         "行動ログを自動で記録するため、常に位置情報を使用します。",
+      NSPhotoLibraryUsageDescription:
+        "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。",
     },
   },
   plugins: [
     "expo-router",
     "expo-sqlite",
     "expo-font",
+    [
+      "expo-media-library",
+      {
+        photosPermission:
+          "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。",
+      },
+    ],
   ],
 };
 

@@ -10,19 +10,29 @@
 - 共有は画像（座標/住所は表示しない、Homeは強制マスク）
 - 日記生成は1日1回まとめてLLM解析
 - 取れなかった日は記録なし（テンプレは出さない）
-- 修正UIは「行動ラベル」「場所名」に限定
+- 修正UIは「行動ラベル」「場所名」「写真の追加/除外」
 - PlacesはOverpass（OSM）をデフォ、キャッシュ必須
 
 ## Navigation
 - BottomTab: Home / Timeline / Settings（3タブ）
-- Stack: Home→Diary→Share, Home→EditStay, Timeline→EditStay, Settings→Export
+- Stack: Home→Diary→Share, Home→EditStay, Timeline→Diary, Timeline→EditStay, Settings→Export
 - Home = 今日のライブビュー（Stayカード + 日記導線）、Timeline = 過去含む全履歴
+- Timeline から過去日の Diary に遷移可能
 
 ## Background Location
 - timeInterval: 180000 (3分)
 - distanceFilter: 50m
 - accuracy: Accuracy.Balanced
 - 精度アップ: requestLocation(単発) → accuracy<=80mなら採用、悪ければ最大30秒高精度
+
+## Photos（写真紐づけ）
+- expo-media-library でカメラロールの写真メタデータを取得
+- Stayの時間帯 ± 5分マージン + GPS 500m以内で自動マッチ
+- 各Stay最大10枚まで（時刻順）
+- パーミッションは位置情報の後に別途リクエスト（同時に2つ要求しない）
+- 拒否されてもアプリは通常動作（写真なし）
+- LLMには写真枚数のみ渡す（写真データは送らない）
+- DB: stay_photos テーブルで管理
 
 ## LLM
 - モデル: GPT-4o-mini（コスト/品質バランス最適）
@@ -49,7 +59,7 @@
 
 ## ShareCard
 - フォーマット: Instagram Story (9:16, 1080x1920)
-- レイアウト: 日付 + タイトル + ハイライト3点 + アプリロゴ
+- レイアウト: 日付 + タイトル + ハイライト3点 + 代表写真（あれば）+ アプリロゴ
 - 座標/住所は非表示、Homeは「自宅」表記
 
 ## Token / Context policy

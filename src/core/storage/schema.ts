@@ -28,11 +28,22 @@ export const MIGRATIONS = [
     highlights_json TEXT,
     share_text TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS stay_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stay_id INTEGER NOT NULL,
+    asset_id TEXT NOT NULL,
+    uri TEXT NOT NULL,
+    width INTEGER NOT NULL DEFAULT 0,
+    height INTEGER NOT NULL DEFAULT 0,
+    taken_at INTEGER NOT NULL,
+    FOREIGN KEY (stay_id) REFERENCES stays(id) ON DELETE CASCADE
+  )`,
   `CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_raw_events_ts ON raw_events(ts)`,
   `CREATE INDEX IF NOT EXISTS idx_stays_start ON stays(start_ts)`,
+  `CREATE INDEX IF NOT EXISTS idx_stay_photos_stay ON stay_photos(stay_id)`,
   `CREATE INDEX IF NOT EXISTS idx_diary_day ON diary_entries(day_key)`,
 ] as const;
