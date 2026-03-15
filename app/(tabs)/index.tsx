@@ -29,6 +29,7 @@ import {
   MOVEMENT_LABELS,
   type Movement,
 } from "@/core/engine/movementEstimator";
+import { CalendarPicker } from "@/features/ui/CalendarPicker";
 
 function StatusBadge({ status }: { status: PermissionState }) {
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
@@ -94,6 +95,7 @@ export default function HomeScreen() {
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [bgStarted, setBgStarted] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const isTodayView = isToday(currentDate);
 
@@ -186,7 +188,7 @@ export default function HomeScreen() {
     return items;
   }, [stays, photoMap, movementMap]);
 
-  const totalDurationMin = stays.reduce((s, st) => s + (st.end_ts - st.start_ts) / 60_000, 0);
+  const totalDistanceM = movements.reduce((s, m) => s + m.distance_m, 0);
   const totalPhotos = Object.values(photoMap).reduce((s, arr) => s + arr.length, 0);
 
   if (loading) {
@@ -243,7 +245,7 @@ export default function HomeScreen() {
         <Pressable onPress={goToPrevDay} style={styles.navBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color="#3b82f6" />
         </Pressable>
-        <Pressable onPress={goToToday} style={styles.dateCenter}>
+        <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
           <Text style={styles.dateText}>{formatDisplayDate(currentDate)}</Text>
           {isTodayView && <Text style={styles.todayBadge}>今日</Text>}
         </Pressable>
@@ -256,6 +258,12 @@ export default function HomeScreen() {
           <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
         </Pressable>
       </View>
+      <CalendarPicker
+        visible={calendarOpen}
+        selectedDate={currentDate}
+        onSelect={setCurrentDate}
+        onClose={() => setCalendarOpen(false)}
+      />
 
       {/* Permission CTA - only when needed on today view */}
       {needsPermission && (
@@ -278,13 +286,8 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatDuration(Math.round(totalDurationMin))}</Text>
-            <Text style={styles.statLabel}>合計</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{movements.length}</Text>
-            <Text style={styles.statLabel}>移動</Text>
+            <Text style={styles.statValue}>{formatDistance(totalDistanceM)}</Text>
+            <Text style={styles.statLabel}>移動距離</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>

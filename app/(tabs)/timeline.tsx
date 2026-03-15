@@ -15,6 +15,7 @@ import type { RawEvent, Stay } from "@/core/domain/models";
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { CalendarPicker } from "@/features/ui/CalendarPicker";
 
 function dayKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -88,6 +89,7 @@ export default function TimelineScreen() {
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const loadData = useCallback(async (date: Date) => {
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -171,7 +173,7 @@ export default function TimelineScreen() {
         <Pressable onPress={goToPrevDay} style={styles.navBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color="#3b82f6" />
         </Pressable>
-        <Pressable onPress={goToToday} style={styles.dateCenter}>
+        <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
           <Text style={styles.dateText}>{formatDisplayDate(currentDate)}</Text>
           {isTodayView && <Text style={styles.todayBadge}>今日</Text>}
         </Pressable>
@@ -184,6 +186,12 @@ export default function TimelineScreen() {
           <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
         </Pressable>
       </View>
+      <CalendarPicker
+        visible={calendarOpen}
+        selectedDate={currentDate}
+        onSelect={setCurrentDate}
+        onClose={() => setCalendarOpen(false)}
+      />
 
       {/* Summary bar */}
       <View style={styles.summaryBar}>
