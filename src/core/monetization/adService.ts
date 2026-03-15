@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 
 /* ─── Test Ad Unit IDs (replace with production IDs later) ─── */
 
@@ -62,10 +62,16 @@ export function warmUpInterstitial(): void {
  * Returns true if ad was shown, false if skipped (cooldown / not loaded / Pro user).
  */
 export function showInterstitialIfReady(isPro: boolean): boolean {
-  if (isPro || isExpoGo) return false;
+  if (isPro) return false;
 
   const now = Date.now();
   if (now - lastInterstitialShown < INTERSTITIAL_COOLDOWN_MS) return false;
+
+  if (isExpoGo) {
+    lastInterstitialShown = now;
+    Alert.alert("Ad (Dev)", "ここにインタースティシャル広告が表示されます");
+    return true;
+  }
 
   if (interstitialAd?.loaded) {
     interstitialAd.show();

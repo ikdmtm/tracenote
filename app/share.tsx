@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter, Stack } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -47,7 +47,15 @@ export default function ShareScreen() {
   const { dayKey } = useLocalSearchParams<{ dayKey: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
+  const navigation = useNavigation();
   const { isPro } = useSubscription();
+
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", () => {
+      showInterstitialIfReady(isPro);
+    });
+    return unsub;
+  }, [navigation, isPro]);
 
   const [stays, setStays] = useState<Stay[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
@@ -120,7 +128,6 @@ export default function ShareScreen() {
         mimeType: "image/png",
         dialogTitle: `TraceNote - ${formatTitle(date)}`,
       });
-      showInterstitialIfReady(isPro);
     } catch (e: any) {
       if (e?.message?.includes("User did not share")) return;
       console.warn("[Share] Error:", e);

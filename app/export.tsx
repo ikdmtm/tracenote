@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +32,15 @@ function daysAgo(n: number): Date {
 export default function ExportScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const navigation = useNavigation();
   const { isPro } = useSubscription();
+
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", () => {
+      showInterstitialIfReady(isPro);
+    });
+    return unsub;
+  }, [navigation, isPro]);
 
   const [startDate, setStartDate] = useState(() => daysAgo(7));
   const [endDate, setEndDate] = useState(() => daysAgo(0));
@@ -55,7 +63,6 @@ export default function ExportScreen() {
           mimeType: format === "json" ? "application/json" : "text/csv",
           UTI: format === "json" ? "public.json" : "public.comma-separated-values-text",
         });
-        showInterstitialIfReady(isPro);
       } else {
         Alert.alert("完了", `ファイルを生成しました:\n${filePath}`);
       }
