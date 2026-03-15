@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Stay, StayPhoto } from "@/core/domain/models";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { useTheme } from "@/features/theme/ThemeContext";
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -76,6 +77,7 @@ type StayCardProps = {
 
 export function StayCard({ stay, photos }: StayCardProps) {
   const router = useRouter();
+  const { theme: t } = useTheme();
   const displayName = resolveDisplayName(stay);
   const label = activityLabel(stay.activity);
   const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
@@ -84,31 +86,35 @@ export function StayCard({ stay, photos }: StayCardProps) {
 
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, { backgroundColor: t.surface }]}
       onPress={() => router.push({ pathname: "/stay-detail", params: { id: String(stay.id) } })}
     >
       <View style={styles.timeColumn}>
-        <Text style={styles.timeText}>{formatTime(stay.start_ts)}</Text>
-        <View style={styles.timeLine} />
-        <Text style={styles.timeText}>{formatTime(stay.end_ts)}</Text>
+        <Text style={[styles.timeText, { color: t.textSecondary }]}>{formatTime(stay.start_ts)}</Text>
+        <View style={[styles.timeLine, { backgroundColor: t.surfaceBorder }]} />
+        <Text style={[styles.timeText, { color: t.textSecondary }]}>{formatTime(stay.end_ts)}</Text>
       </View>
 
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <Ionicons name={icon as any} size={16} color="#64748b" style={{ marginRight: 4 }} />
-          <Text style={styles.placeName} numberOfLines={1}>
+          <Ionicons name={icon as any} size={16} color={t.textSecondary} style={{ marginRight: 4 }} />
+          <Text style={[styles.placeName, { color: t.text }]} numberOfLines={1}>
             {displayName}
           </Text>
           {stay.needs_review && (
-            <View style={styles.reviewBadge}>
+            <View style={[styles.reviewBadge, { backgroundColor: "#fef3c7" }]}>
               <Text style={styles.reviewText}>要確認</Text>
             </View>
           )}
         </View>
 
         <View style={styles.subRow}>
-          {label && <Text style={styles.activityChip}>{label}</Text>}
-          <Text style={styles.duration}>
+          {label && (
+            <Text style={[styles.activityChip, { color: t.primary, backgroundColor: t.primaryLight }]}>
+              {label}
+            </Text>
+          )}
+          <Text style={[styles.duration, { color: t.textSecondary }]}>
             {durationLabel(stay.start_ts, stay.end_ts)}
           </Text>
         </View>
@@ -117,20 +123,16 @@ export function StayCard({ stay, photos }: StayCardProps) {
           <View style={styles.photoRow}>
             {thumbs.map((p) => (
               p.uri && !p.uri.startsWith("ph://") ? (
-                <Image
-                  key={p.id}
-                  source={{ uri: p.uri }}
-                  style={styles.thumbnail}
-                />
+                <Image key={p.id} source={{ uri: p.uri }} style={[styles.thumbnail, { backgroundColor: t.divider }]} />
               ) : (
-                <View key={p.id} style={[styles.thumbnail, styles.photoFallback]}>
-                  <Ionicons name="image-outline" size={18} color="#94a3b8" />
+                <View key={p.id} style={[styles.thumbnail, styles.photoFallback, { backgroundColor: t.divider }]}>
+                  <Ionicons name="image-outline" size={18} color={t.textMuted} />
                 </View>
               )
             ))}
             {extraCount > 0 && (
-              <View style={styles.extraBadge}>
-                <Text style={styles.extraText}>+{extraCount}</Text>
+              <View style={[styles.extraBadge, { backgroundColor: t.divider }]}>
+                <Text style={[styles.extraText, { color: t.textSecondary }]}>+{extraCount}</Text>
               </View>
             )}
           </View>
@@ -138,17 +140,10 @@ export function StayCard({ stay, photos }: StayCardProps) {
 
         <View style={styles.footer}>
           <View style={styles.confRow}>
-            <View
-              style={[
-                styles.confDot,
-                { backgroundColor: confidenceColor(stay.confidence) },
-              ]}
-            />
-            <Text style={styles.confText}>
-              {Math.round(stay.confidence * 100)}%
-            </Text>
+            <View style={[styles.confDot, { backgroundColor: confidenceColor(stay.confidence) }]} />
+            <Text style={[styles.confText, { color: t.textMuted }]}>{Math.round(stay.confidence * 100)}%</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
+          <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
         </View>
       </View>
     </Pressable>
@@ -158,7 +153,6 @@ export function StayCard({ stay, photos }: StayCardProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 12,
     shadowColor: "#000",
@@ -176,12 +170,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#64748b",
   },
   timeLine: {
     flex: 1,
     width: 2,
-    backgroundColor: "#e2e8f0",
     marginVertical: 4,
     borderRadius: 1,
   },
@@ -196,7 +188,6 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#0f172a",
     flex: 1,
   },
   reviewBadge: {
@@ -219,8 +210,6 @@ const styles = StyleSheet.create({
   activityChip: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#eff6ff",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -228,7 +217,6 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 13,
-    color: "#64748b",
   },
   photoRow: {
     flexDirection: "row",
@@ -240,7 +228,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 6,
-    backgroundColor: "#f1f5f9",
   },
   photoFallback: {
     justifyContent: "center",
@@ -250,14 +237,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 6,
-    backgroundColor: "#f1f5f9",
     justifyContent: "center",
     alignItems: "center",
   },
   extraText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#64748b",
   },
   footer: {
     flexDirection: "row",
@@ -277,6 +262,5 @@ const styles = StyleSheet.create({
   },
   confText: {
     fontSize: 12,
-    color: "#94a3b8",
   },
 });

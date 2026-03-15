@@ -2,19 +2,23 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text, StyleSheet } from "react-native";
 
-function HeaderTitle() {
-  return <Text style={styles.headerTitle}>TraceNote</Text>;
-}
+import { useTheme } from "@/features/theme/ThemeContext";
 
 export default function TabLayout() {
+  const { theme } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#2563eb",
-        tabBarInactiveTintColor: "#94a3b8",
-        headerStyle: { backgroundColor: "#ffffff" },
-        headerTitle: () => <HeaderTitle />,
+        tabBarActiveTintColor: theme.tabActive,
+        tabBarInactiveTintColor: theme.tabInactive,
+        tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.surfaceBorder },
+        headerStyle: { backgroundColor: theme.headerBg },
+        headerTitle: () => (
+          <Text style={[styles.headerTitle, { color: theme.headerText }]}>TraceNote</Text>
+        ),
         headerTitleAlign: "left",
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
@@ -52,7 +56,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1e293b",
     letterSpacing: 0.3,
   },
 });

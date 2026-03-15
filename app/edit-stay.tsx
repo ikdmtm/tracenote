@@ -15,6 +15,7 @@ import {
 } from "react-native";
 
 import type { Stay, StayPhoto } from "@/core/domain/models";
+import { useTheme } from "@/features/theme/ThemeContext";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 import { getStayById, updateStay } from "@/core/storage/stayRepo";
@@ -67,6 +68,7 @@ const ACTIVITY_OPTIONS: Activity[] = [
 ];
 
 export default function EditStayScreen() {
+  const { theme: t } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
@@ -180,8 +182,8 @@ export default function EditStayScreen() {
 
   if (!stay) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
+        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
       </View>
     );
   }
@@ -191,89 +193,91 @@ export default function EditStayScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "滞在の編集", headerBackTitle: "戻る" }} />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={[styles.container, { backgroundColor: t.bg }]} contentContainerStyle={styles.scrollContent}>
         {/* Time and Duration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>時間</Text>
+        <View style={[styles.section, { backgroundColor: t.surface }]}>
+          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>時間</Text>
           <View style={styles.timeRow}>
-            <Ionicons name="time-outline" size={20} color="#3b82f6" />
-            <Text style={styles.timeValue}>
+            <Ionicons name="time-outline" size={20} color={t.primary} />
+            <Text style={[styles.timeValue, { color: t.text }]}>
               {formatTime(stay.start_ts)} 〜 {formatTime(stay.end_ts)}
             </Text>
-            <Text style={styles.durationValue}>
+            <Text style={[styles.durationValue, { color: t.textMuted }]}>
               ({durationLabel(stay.start_ts, stay.end_ts)})
             </Text>
           </View>
         </View>
 
         {/* Place Info */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: t.surface }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>場所情報</Text>
-            <Pressable onPress={handleReEnrich} disabled={enriching} style={styles.reEnrichBtn}>
-              <Ionicons name="refresh" size={14} color="#3b82f6" />
-              <Text style={styles.reEnrichText}>
+            <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>場所情報</Text>
+            <Pressable onPress={handleReEnrich} disabled={enriching} style={[styles.reEnrichBtn, { backgroundColor: t.primaryLight }]}>
+              <Ionicons name="refresh" size={14} color={t.primary} />
+              <Text style={[styles.reEnrichText, { color: t.primary }]}>
                 {enriching ? "推定中..." : "再推定"}
               </Text>
             </Pressable>
           </View>
           {place.name && (
-            <View style={styles.placeRow}>
-              <Text style={styles.placeLabel}>検出場所</Text>
-              <Text style={styles.placeValue}>{place.name}</Text>
+            <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
+              <Text style={[styles.placeLabel, { color: t.textSecondary }]}>検出場所</Text>
+              <Text style={[styles.placeValue, { color: t.text }]}>{place.name}</Text>
             </View>
           )}
           {place.category && (
-            <View style={styles.placeRow}>
-              <Text style={styles.placeLabel}>カテゴリ</Text>
-              <Text style={styles.placeValue}>
+            <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
+              <Text style={[styles.placeLabel, { color: t.textSecondary }]}>カテゴリ</Text>
+              <Text style={[styles.placeValue, { color: t.text }]}>
                 {CATEGORY_LABELS[place.category] ?? place.category}
               </Text>
             </View>
           )}
-          <View style={styles.placeRow}>
-            <Text style={styles.placeLabel}>座標</Text>
-            <Text style={styles.coordValue}>
+          <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
+            <Text style={[styles.placeLabel, { color: t.textSecondary }]}>座標</Text>
+            <Text style={[styles.coordValue, { color: t.textMuted }]}>
               {stay.lat.toFixed(5)}, {stay.lng.toFixed(5)}
             </Text>
           </View>
           {place.count > 1 && (
-            <Text style={styles.placeNote}>
+            <Text style={[styles.placeNote, { color: t.textMuted }]}>
               周辺に {place.count} 件の施設を検出
             </Text>
           )}
         </View>
 
         {/* Edit Place Name */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>場所名（カスタム）</Text>
+        <View style={[styles.section, { backgroundColor: t.surface }]}>
+          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>場所名（カスタム）</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: t.surfaceBorder, color: t.text, backgroundColor: t.bg }]}
             placeholder="例: 自宅、会社、〇〇カフェ..."
             value={editName}
             onChangeText={setEditName}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={t.textMuted}
             returnKeyType="done"
           />
         </View>
 
         {/* Activity Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>行動ラベル</Text>
+        <View style={[styles.section, { backgroundColor: t.surface }]}>
+          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>行動ラベル</Text>
           <View style={styles.activityGrid}>
             {ACTIVITY_OPTIONS.map((act) => (
               <Pressable
                 key={act}
                 style={[
                   styles.activityBtn,
-                  selectedActivity === act && styles.activityBtnActive,
+                  { backgroundColor: t.divider, borderColor: "transparent" },
+                  selectedActivity === act && { backgroundColor: t.primaryLight, borderColor: t.primary },
                 ]}
                 onPress={() => setSelectedActivity(act)}
               >
                 <Text
                   style={[
                     styles.activityBtnText,
-                    selectedActivity === act && styles.activityBtnTextActive,
+                    { color: t.textSecondary },
+                    selectedActivity === act && { color: t.primary },
                   ]}
                 >
                   {ACTIVITY_LABELS[act]}
@@ -284,12 +288,12 @@ export default function EditStayScreen() {
         </View>
 
         {/* Photos */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: t.surface }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>写真</Text>
-            <Pressable onPress={handleReMatchPhotos} style={styles.reEnrichBtn}>
-              <Ionicons name="images-outline" size={14} color="#3b82f6" />
-              <Text style={styles.reEnrichText}>再マッチ</Text>
+            <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>写真</Text>
+            <Pressable onPress={handleReMatchPhotos} style={[styles.reEnrichBtn, { backgroundColor: t.primaryLight }]}>
+              <Ionicons name="images-outline" size={14} color={t.primary} />
+              <Text style={[styles.reEnrichText, { color: t.primary }]}>再マッチ</Text>
             </Pressable>
           </View>
           {photos.length > 0 ? (
@@ -297,26 +301,26 @@ export default function EditStayScreen() {
               {photos.map((p) => (
                 <View key={p.id} style={styles.photoItem}>
                   {p.uri && !p.uri.startsWith("ph://") ? (
-                    <Image source={{ uri: p.uri }} style={styles.photoImage} />
+                    <Image source={{ uri: p.uri }} style={[styles.photoImage, { backgroundColor: t.divider }]} />
                   ) : (
-                    <View style={[styles.photoImage, { justifyContent: "center", alignItems: "center" }]}>
-                      <Ionicons name="image-outline" size={24} color="#94a3b8" />
+                    <View style={[styles.photoImage, { backgroundColor: t.divider, justifyContent: "center", alignItems: "center" }]}>
+                      <Ionicons name="image-outline" size={24} color={t.textMuted} />
                     </View>
                   )}
                   <Pressable
-                    style={styles.photoRemoveBtn}
+                    style={[styles.photoRemoveBtn, { backgroundColor: t.surface }]}
                     onPress={() => handleRemovePhoto(p.id)}
                   >
-                    <Ionicons name="close-circle" size={20} color="#ef4444" />
+                    <Ionicons name="close-circle" size={20} color={t.danger} />
                   </Pressable>
-                  <Text style={styles.photoTime}>
+                  <Text style={[styles.photoTime, { color: t.textMuted }]}>
                     {formatTime(p.taken_at)}
                   </Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={styles.photoEmpty}>
+            <Text style={[styles.photoEmpty, { color: t.textMuted }]}>
               この滞在に紐づく写真はありません
             </Text>
           )}
@@ -334,11 +338,11 @@ export default function EditStayScreen() {
 
         {/* Save Button */}
         <Pressable
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, { backgroundColor: t.primary }, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={styles.saveBtnText}>
+          <Text style={[styles.saveBtnText, { color: t.textOnPrimary }]}>
             {saving ? "保存中..." : "保存する"}
           </Text>
         </Pressable>
@@ -350,7 +354,6 @@ export default function EditStayScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   scrollContent: {
     padding: 16,
@@ -360,10 +363,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 80,
     fontSize: 15,
-    color: "#94a3b8",
   },
   section: {
-    backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -382,7 +383,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -396,11 +396,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#0f172a",
   },
   durationValue: {
     fontSize: 14,
-    color: "#94a3b8",
   },
   placeRow: {
     flexDirection: "row",
@@ -408,25 +406,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#f1f5f9",
   },
   placeLabel: {
     fontSize: 14,
-    color: "#64748b",
   },
   placeValue: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#0f172a",
   },
   coordValue: {
     fontSize: 13,
     fontVariant: ["tabular-nums"],
-    color: "#94a3b8",
   },
   placeNote: {
     fontSize: 12,
-    color: "#94a3b8",
     marginTop: 6,
   },
   reEnrichBtn: {
@@ -436,21 +429,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: "#eff6ff",
   },
   reEnrichText: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#3b82f6",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
-    color: "#0f172a",
-    backgroundColor: "#f8fafc",
   },
   activityGrid: {
     flexDirection: "row",
@@ -461,21 +449,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
     borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  activityBtnActive: {
-    backgroundColor: "#eff6ff",
-    borderColor: "#3b82f6",
   },
   activityBtnText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#64748b",
-  },
-  activityBtnTextActive: {
-    color: "#3b82f6",
   },
   photoGrid: {
     flexDirection: "row",
@@ -489,24 +467,20 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
   },
   photoRemoveBtn: {
     position: "absolute",
     top: -6,
     right: -6,
-    backgroundColor: "#ffffff",
     borderRadius: 10,
   },
   photoTime: {
     fontSize: 10,
-    color: "#94a3b8",
     textAlign: "center",
     marginTop: 2,
   },
   photoEmpty: {
     fontSize: 13,
-    color: "#94a3b8",
     textAlign: "center",
     paddingVertical: 12,
   },
@@ -528,7 +502,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   saveBtn: {
-    backgroundColor: "#3b82f6",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
@@ -540,6 +513,5 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#ffffff",
   },
 });

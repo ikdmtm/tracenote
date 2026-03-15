@@ -6,11 +6,11 @@ import { StatusBar } from "expo-status-bar";
 
 import { DB_NAME, initDatabase } from "@/core/storage/db";
 import { SubscriptionProvider } from "@/features/monetization/SubscriptionContext";
+import { ThemeProvider } from "@/features/theme/ThemeContext";
 
-export default function RootLayout() {
+function AppContent() {
   return (
-    <SQLiteProvider databaseName={DB_NAME} onInit={initDatabase}>
-      <SubscriptionProvider>
+    <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
@@ -47,7 +47,18 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-      </SubscriptionProvider>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SQLiteProvider databaseName={DB_NAME} onInit={initDatabase}>
+      <ThemeProvider>
+        <SubscriptionProvider>
+          <AppContent />
+        </SubscriptionProvider>
+      </ThemeProvider>
     </SQLiteProvider>
   );
 }

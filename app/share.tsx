@@ -26,6 +26,7 @@ import {
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
 import { useSubscription } from "@/features/monetization/SubscriptionContext";
+import { useTheme } from "@/features/theme/ThemeContext";
 import {
   ShareCardPage,
   splitIntoPages,
@@ -49,6 +50,7 @@ export default function ShareScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { isPro } = useSubscription();
+  const { theme } = useTheme();
 
   useEffect(() => {
     const unsub = navigation.addListener("beforeRemove", () => {
@@ -150,8 +152,8 @@ export default function ShareScreen() {
     return (
       <>
         <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+        <View style={[styles.center, { backgroundColor: theme.bg }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       </>
     );
@@ -161,9 +163,9 @@ export default function ShareScreen() {
     return (
       <>
         <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
-        <View style={styles.center}>
-          <Ionicons name="calendar-outline" size={48} color="#cbd5e1" />
-          <Text style={styles.emptyText}>この日の共有できる滞在データがありません</Text>
+        <View style={[styles.center, { backgroundColor: theme.bg }]}>
+          <Ionicons name="calendar-outline" size={48} color={theme.textMuted} />
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>この日の共有できる滞在データがありません</Text>
         </View>
       </>
     );
@@ -184,8 +186,8 @@ export default function ShareScreen() {
           headerRight: closeBtn,
         }}
       />
-      <View style={styles.container}>
-        <Text style={styles.hint}>
+      <View style={[styles.container, { backgroundColor: theme.bg }]}>
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>
           {pages.length > 1
             ? `${pages.length}ページ — 左右にスワイプ`
             : "プレビュー"}
@@ -213,6 +215,7 @@ export default function ShareScreen() {
                   totalStays={stays.length}
                   totalDistanceM={totalDistanceM}
                   totalPhotos={totalPhotos}
+                  theme={theme}
                 />
               </View>
             </View>
@@ -225,28 +228,28 @@ export default function ShareScreen() {
             {pages.map((_, i) => (
               <View
                 key={i}
-                style={[styles.dot, i === currentPage && styles.dotActive]}
+                style={[styles.dot, { backgroundColor: theme.textMuted }, i === currentPage && { backgroundColor: theme.primary, width: 18 }]}
               />
             ))}
           </View>
         )}
 
-        <Text style={styles.note}>
+        <Text style={[styles.note, { color: theme.textMuted }]}>
           ※ 座標・住所は画像に含まれません{"\n"}
           自宅は「自宅」とのみ表示されます
         </Text>
 
         <Pressable
-          style={[styles.shareBtn, sharing && styles.shareBtnDisabled]}
+          style={[styles.shareBtn, { backgroundColor: theme.primary }, sharing && styles.shareBtnDisabled]}
           onPress={handleShareCurrent}
           disabled={sharing}
         >
           {sharing ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <ActivityIndicator size="small" color={theme.textOnPrimary} />
           ) : (
             <>
-              <Ionicons name="share-outline" size={18} color="#ffffff" />
-              <Text style={styles.shareBtnText}>
+              <Ionicons name="share-outline" size={18} color={theme.textOnPrimary} />
+              <Text style={[styles.shareBtnText, { color: theme.textOnPrimary }]}>
                 {pages.length > 1
                   ? `ページ ${currentPage + 1} をシェア`
                   : "シェアする"}
@@ -264,7 +267,6 @@ const CARD_PREVIEW_W = 1080 * 0.3;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   center: {
     flex: 1,
@@ -274,13 +276,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: "#94a3b8",
     textAlign: "center",
   },
   hint: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#64748b",
     textAlign: "center",
     marginTop: 12,
     marginBottom: 10,
@@ -310,15 +310,9 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#cbd5e1",
-  },
-  dotActive: {
-    backgroundColor: "#3b82f6",
-    width: 18,
   },
   note: {
     fontSize: 12,
-    color: "#94a3b8",
     textAlign: "center",
     marginTop: 12,
     lineHeight: 18,
@@ -329,7 +323,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#3b82f6",
     borderRadius: 12,
     paddingVertical: 14,
     marginHorizontal: 20,
@@ -342,6 +335,5 @@ const styles = StyleSheet.create({
   shareBtnText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#ffffff",
   },
 });

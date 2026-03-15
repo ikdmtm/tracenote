@@ -7,6 +7,7 @@ import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference"
 import type { HomeLocation } from "@/core/engine/homeDetector";
 import { isHomeStay } from "@/core/engine/homeDetector";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import type { ThemeColors } from "@/features/theme/colors";
 
 /* ─── Layout ─── */
 
@@ -140,16 +141,17 @@ export type ShareCardPageProps = {
   totalStays: number;
   totalDistanceM: number;
   totalPhotos: number;
+  theme: ThemeColors;
 };
 
 export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
-  ({ date, page, photoMap, home, totalStays, totalDistanceM, totalPhotos }, ref) => {
+  ({ date, page, photoMap, home, totalStays, totalDistanceM, totalPhotos, theme: tc }, ref) => {
     const { staysSlice, isFirst, pageIdx, totalPages, hasNextPage, hasPrevPage } = page;
     const multiPage = totalPages > 1;
 
     return (
-      <View ref={ref} style={s.card} collapsable={false}>
-        <View style={s.bg} />
+      <View ref={ref} style={[s.card, { backgroundColor: tc.cardBg }]} collapsable={false}>
+        <View style={[s.bg, { backgroundColor: tc.cardBg }]} />
         <View style={{ height: SAFE_TOP }} />
 
         {/* Date */}
@@ -211,8 +213,8 @@ export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
                   <Text style={s.tlTime}>{fmtTime(stay.start_ts)}</Text>
                 </View>
                 <View style={s.tlDotCol}>
-                  <View style={[s.dot, isHomeStay(stay, home) && s.dotHome]}>
-                    <Ionicons name={icon as any} size={14} color="#ffffff" />
+                  <View style={[s.dot, { backgroundColor: tc.cardDot }, isHomeStay(stay, home) && { backgroundColor: tc.cardHomeDot }]}>
+                    <Ionicons name={icon as any} size={14} color={tc.cardText} />
                   </View>
                   {showLine && <View style={s.dotLine} />}
                 </View>

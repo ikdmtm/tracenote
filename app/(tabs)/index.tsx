@@ -34,6 +34,8 @@ import {
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
 import { MovementModePicker } from "@/features/movements/MovementModePicker";
 import { AdBanner } from "@/features/monetization/AdBanner";
+import { useTheme } from "@/features/theme/ThemeContext";
+import type { ThemeColors } from "@/features/theme/colors";
 
 function StatusBadge({ status }: { status: PermissionState }) {
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
@@ -94,6 +96,7 @@ type ListItem =
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const { theme: t } = useTheme();
   const { status, loading, requestAlways, openSettings } = useLocationPermission();
   const [eventCount, setEventCount] = useState(0);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -248,8 +251,8 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
+        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
       </View>
     );
   }
@@ -263,15 +266,23 @@ export default function HomeScreen() {
       const isEdited = !!m.userMode;
       return (
         <Pressable style={styles.movementRow} onPress={() => setEditingMovement(m)}>
-          <View style={styles.movementLine} />
-          <View style={[styles.movementBubble, isEdited && styles.movementBubbleEdited]}>
-            <Ionicons name={icon as any} size={14} color={isEdited ? "#3b82f6" : "#64748b"} />
-            <Text style={[styles.movementText, isEdited && styles.movementTextEdited]}>
+          <View style={[styles.movementLine, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[
+            styles.movementBubble,
+            { backgroundColor: t.bg, borderColor: t.surfaceBorder },
+            isEdited && { borderColor: t.primaryBorder, backgroundColor: t.primaryLight },
+          ]}>
+            <Ionicons name={icon as any} size={14} color={isEdited ? t.primary : t.textSecondary} />
+            <Text style={[
+              styles.movementText,
+              { color: t.textSecondary },
+              isEdited && { color: t.primary },
+            ]}>
               {label} {formatDuration(m.duration_min)} · {formatDistance(m.distance_m)}
             </Text>
-            {isEdited && <Ionicons name="pencil-outline" size={10} color="#3b82f6" />}
+            {isEdited && <Ionicons name="pencil-outline" size={10} color={t.primary} />}
           </View>
-          <View style={styles.movementLine} />
+          <View style={[styles.movementLine, { backgroundColor: t.surfaceBorder }]} />
         </Pressable>
       );
     }
@@ -286,23 +297,23 @@ export default function HomeScreen() {
   const needsPermission = status !== "always" && isTodayView;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
       {/* Date Navigation */}
       <View style={styles.dateNav}>
-        <Pressable onPress={goToPrevDay} style={styles.navBtn} hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color="#3b82f6" />
+        <Pressable onPress={goToPrevDay} style={[styles.navBtn, { backgroundColor: t.divider }]} hitSlop={8}>
+          <Ionicons name="chevron-back" size={20} color={t.primary} />
         </Pressable>
         <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
-          <Text style={styles.dateText}>{formatDisplayDate(currentDate)}</Text>
-          {isTodayView && <Text style={styles.todayBadge}>今日</Text>}
+          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate)}</Text>
+          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>今日</Text>}
         </Pressable>
         <Pressable
           onPress={goToNextDay}
-          style={[styles.navBtn, isTodayView && { opacity: 0.3 }]}
+          style={[styles.navBtn, { backgroundColor: t.divider }, isTodayView && { opacity: 0.3 }]}
           disabled={isTodayView}
           hitSlop={8}
         >
-          <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+          <Ionicons name="chevron-forward" size={20} color={t.primary} />
         </Pressable>
       </View>
       <CalendarPicker
@@ -318,39 +329,36 @@ export default function HomeScreen() {
         onClose={() => setEditingMovement(null)}
       />
 
-      {/* Permission CTA - only when needed on today view */}
       {needsPermission && (
         <View style={styles.permCard}>
-          <Pressable style={styles.permButton} onPress={handlePermissionPress}>
-            <Ionicons name="location" size={18} color="#ffffff" />
-            <Text style={styles.permButtonText}>
+          <Pressable style={[styles.permButton, { backgroundColor: t.primary }]} onPress={handlePermissionPress}>
+            <Ionicons name="location" size={18} color={t.textOnPrimary} />
+            <Text style={[styles.permButtonText, { color: t.textOnPrimary }]}>
               {status === "denied" ? "設定で許可する" : "位置情報を常に許可する"}
             </Text>
           </Pressable>
         </View>
       )}
 
-      {/* Stats Header */}
       {stays.length > 0 && (
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, { backgroundColor: t.surface }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stays.length}</Text>
-            <Text style={styles.statLabel}>滞在</Text>
+            <Text style={[styles.statValue, { color: t.text }]}>{stays.length}</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>滞在</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: t.surfaceBorder }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatDistance(totalDistanceM)}</Text>
-            <Text style={styles.statLabel}>移動距離</Text>
+            <Text style={[styles.statValue, { color: t.text }]}>{formatDistance(totalDistanceM)}</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>移動距離</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: t.surfaceBorder }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{totalPhotos}</Text>
-            <Text style={styles.statLabel}>写真</Text>
+            <Text style={[styles.statValue, { color: t.text }]}>{totalPhotos}</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>写真</Text>
           </View>
         </View>
       )}
 
-      {/* Main Content */}
       {stays.length > 0 ? (
         <FlatList
           data={listItems}
@@ -362,30 +370,30 @@ export default function HomeScreen() {
           }
           ListFooterComponent={
             <Pressable
-              style={styles.shareBtn}
+              style={[styles.shareBtn, { borderColor: t.primaryBorder, backgroundColor: t.primaryLight }]}
               onPress={() => router.push({ pathname: "/share", params: { dayKey: dayKeyFromDate(currentDate) } })}
             >
-              <Ionicons name="share-outline" size={16} color="#3b82f6" />
-              <Text style={styles.shareBtnText}>シェアする</Text>
+              <Ionicons name="share-outline" size={16} color={t.primary} />
+              <Text style={[styles.shareBtnText, { color: t.primary }]}>シェアする</Text>
             </Pressable>
           }
         />
       ) : (
         <View style={styles.placeholder}>
           {isTodayView && status === "always" ? (
-            <Text style={styles.placeholderText}>
+            <Text style={[styles.placeholderText, { color: t.textMuted }]}>
               バックグラウンドで位置情報を収集中...{"\n"}
               滞在が検出されるとここに表示されます
             </Text>
           ) : isTodayView ? (
-            <Text style={styles.placeholderText}>
+            <Text style={[styles.placeholderText, { color: t.textMuted }]}>
               位置情報を「常に許可」すると{"\n"}
               行動ログの自動記録が始まります
             </Text>
           ) : (
             <>
-              <Ionicons name="calendar-outline" size={40} color="#cbd5e1" />
-              <Text style={styles.placeholderText}>この日の滞在データはありません</Text>
+              <Ionicons name="calendar-outline" size={40} color={t.textMuted} />
+              <Text style={[styles.placeholderText, { color: t.textMuted }]}>この日の滞在データはありません</Text>
             </>
           )}
         </View>
@@ -399,7 +407,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   dateNav: {
     flexDirection: "row",
@@ -411,7 +418,6 @@ const styles = StyleSheet.create({
   navBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
   },
   dateCenter: {
     alignItems: "center",
@@ -419,17 +425,14 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#0f172a",
   },
   todayBadge: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#3b82f6",
     marginTop: 1,
   },
   loadingText: {
     fontSize: 15,
-    color: "#94a3b8",
     textAlign: "center",
     marginTop: 100,
   },
@@ -458,7 +461,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2563eb",
     borderRadius: 10,
     paddingVertical: 12,
     gap: 8,
@@ -466,11 +468,9 @@ const styles = StyleSheet.create({
   permButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#ffffff",
   },
   statsRow: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 12,
@@ -489,16 +489,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
-    color: "#0f172a",
   },
   statLabel: {
     fontSize: 11,
-    color: "#94a3b8",
     marginTop: 1,
   },
   statDivider: {
     width: 1,
-    backgroundColor: "#e2e8f0",
   },
   listContent: {
     paddingHorizontal: 16,
@@ -514,37 +511,24 @@ const styles = StyleSheet.create({
   movementLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e2e8f0",
   },
   movementBubble: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   movementText: {
     fontSize: 11,
-    color: "#64748b",
-  },
-  movementBubbleEdited: {
-    borderColor: "#bfdbfe",
-    backgroundColor: "#eff6ff",
-  },
-  movementTextEdited: {
-    color: "#3b82f6",
   },
   shareBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#dbeafe",
-    backgroundColor: "#eff6ff",
     borderRadius: 10,
     paddingVertical: 12,
     gap: 6,
@@ -553,7 +537,6 @@ const styles = StyleSheet.create({
   shareBtnText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#3b82f6",
   },
   placeholder: {
     flex: 1,
@@ -563,7 +546,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 15,
-    color: "#94a3b8",
     textAlign: "center",
     lineHeight: 24,
   },

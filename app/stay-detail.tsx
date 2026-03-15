@@ -17,6 +17,8 @@ import {
 import type { Stay, StayPhoto } from "@/core/domain/models";
 import { getStayById } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
+import { useTheme } from "@/features/theme/ThemeContext";
+import type { ThemeColors } from "@/features/theme/colors";
 import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 
@@ -67,7 +69,15 @@ const ACTIVITY_ICON: Record<string, string> = {
   other: "location-outline",
 };
 
-function PhotoViewer({ photo, onClose }: { photo: StayPhoto | null; onClose: () => void }) {
+function PhotoViewer({
+  photo,
+  onClose,
+  theme: t,
+}: {
+  photo: StayPhoto | null;
+  onClose: () => void;
+  theme: ThemeColors;
+}) {
   if (!photo) return null;
   const ratio = photo.width > 0 && photo.height > 0 ? photo.height / photo.width : 1;
   const displayHeight = Math.min(SCREEN_WIDTH * ratio, Dimensions.get("window").height * 0.7);
@@ -83,11 +93,16 @@ function PhotoViewer({ photo, onClose }: { photo: StayPhoto | null; onClose: () 
               resizeMode="contain"
             />
           ) : (
-            <View style={[styles.viewerFallback, { width: SCREEN_WIDTH - 32, height: 200 }]}>
-              <Ionicons name="image-outline" size={48} color="#94a3b8" />
+            <View
+              style={[
+                styles.viewerFallback,
+                { width: SCREEN_WIDTH - 32, height: 200, backgroundColor: t.surface },
+              ]}
+            >
+              <Ionicons name="image-outline" size={48} color={t.textMuted} />
             </View>
           )}
-          <Text style={styles.viewerTime}>{formatTime(photo.taken_at)}</Text>
+          <Text style={[styles.viewerTime, { color: t.textOnPrimary }]}>{formatTime(photo.taken_at)}</Text>
         </View>
       </Pressable>
     </Modal>
@@ -95,6 +110,7 @@ function PhotoViewer({ photo, onClose }: { photo: StayPhoto | null; onClose: () 
 }
 
 export default function StayDetailScreen() {
+  const { theme: t } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
@@ -120,8 +136,8 @@ export default function StayDetailScreen() {
 
   if (loading || !stay) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
+        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
       </View>
     );
   }
@@ -141,64 +157,87 @@ export default function StayDetailScreen() {
               onPress={() => router.push({ pathname: "/edit-stay", params: { id: String(stay.id) } })}
               hitSlop={8}
             >
-              <Ionicons name="create-outline" size={22} color="#3b82f6" />
+              <Ionicons name="create-outline" size={22} color={t.primary} />
             </Pressable>
           ),
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: t.bg }]}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header Card */}
-        <View style={styles.headerCard}>
+        <View style={[styles.headerCard, { backgroundColor: t.surface }]}>
           <View style={styles.headerTop}>
-            <View style={styles.iconCircle}>
-              <Ionicons name={icon as any} size={24} color="#3b82f6" />
+            <View style={[styles.iconCircle, { backgroundColor: t.primaryLight }]}>
+              <Ionicons name={icon as any} size={24} color={t.primary} />
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.placeName}>{placeName}</Text>
-              {actLabel && <Text style={styles.activityLabel}>{actLabel}</Text>}
+              <Text style={[styles.placeName, { color: t.text }]}>{placeName}</Text>
+              {actLabel && (
+                <Text style={[styles.activityLabel, { color: t.primary }]}>{actLabel}</Text>
+              )}
             </View>
             {stay.needs_review && (
-              <View style={styles.reviewBadge}>
-                <Text style={styles.reviewText}>要確認</Text>
+              <View style={[styles.reviewBadge, { backgroundColor: t.divider }]}>
+                <Text style={[styles.reviewText, { color: t.warning }]}>要確認</Text>
               </View>
             )}
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={16} color="#64748b" />
-              <Text style={styles.metaText}>
+              <Ionicons name="time-outline" size={16} color={t.textSecondary} />
+              <Text style={[styles.metaText, { color: t.textSecondary }]}>
                 {formatTime(stay.start_ts)} 〜 {formatTime(stay.end_ts)}
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="hourglass-outline" size={16} color="#64748b" />
-              <Text style={styles.metaText}>{durationLabel(stay.start_ts, stay.end_ts)}</Text>
+              <Ionicons name="hourglass-outline" size={16} color={t.textSecondary} />
+              <Text style={[styles.metaText, { color: t.textSecondary }]}>
+                {durationLabel(stay.start_ts, stay.end_ts)}
+              </Text>
             </View>
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={16} color="#64748b" />
-              <Text style={styles.metaText}>{formatDate(stay.start_ts)}</Text>
+              <Ionicons name="calendar-outline" size={16} color={t.textSecondary} />
+              <Text style={[styles.metaText, { color: t.textSecondary }]}>
+                {formatDate(stay.start_ts)}
+              </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="navigate-outline" size={16} color="#64748b" />
-              <Text style={styles.metaText}>
+              <Ionicons name="navigate-outline" size={16} color={t.textSecondary} />
+              <Text style={[styles.metaText, { color: t.textSecondary }]}>
                 {stay.lat.toFixed(4)}, {stay.lng.toFixed(4)}
               </Text>
             </View>
           </View>
 
           <View style={styles.confRow}>
-            <View style={[styles.confDot, { backgroundColor: stay.confidence >= 0.7 ? "#16a34a" : stay.confidence >= 0.4 ? "#d97706" : "#dc2626" }]} />
-            <Text style={styles.confText}>精度 {Math.round(stay.confidence * 100)}%</Text>
+            <View
+              style={[
+                styles.confDot,
+                {
+                  backgroundColor:
+                    stay.confidence >= 0.7
+                      ? t.success
+                      : stay.confidence >= 0.4
+                        ? t.warning
+                        : t.danger,
+                },
+              ]}
+            />
+            <Text style={[styles.confText, { color: t.textMuted }]}>
+              精度 {Math.round(stay.confidence * 100)}%
+            </Text>
           </View>
         </View>
 
         {/* Photos Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>写真（{photos.length}枚）</Text>
+          <Text style={[styles.sectionTitle, { color: t.text }]}>写真（{photos.length}枚）</Text>
           {photos.length > 0 ? (
             <View style={styles.photoGrid}>
               {photos.map((p) => (
@@ -206,30 +245,35 @@ export default function StayDetailScreen() {
                   {p.uri && !p.uri.startsWith("ph://") ? (
                     <Image source={{ uri: p.uri }} style={styles.photoThumb} />
                   ) : (
-                    <View style={[styles.photoThumb, styles.photoFallback]}>
-                      <Ionicons name="image-outline" size={24} color="#94a3b8" />
+                    <View style={[styles.photoThumb, styles.photoFallback, { backgroundColor: t.divider }]}>
+                      <Ionicons name="image-outline" size={24} color={t.textMuted} />
                     </View>
                   )}
-                  <Text style={styles.photoTime}>{formatTime(p.taken_at)}</Text>
+                  <Text style={[styles.photoTime, { color: t.textMuted }]}>{formatTime(p.taken_at)}</Text>
                 </Pressable>
               ))}
             </View>
           ) : (
-            <Text style={styles.emptyPhotos}>紐づいている写真はありません</Text>
+            <Text style={[styles.emptyPhotos, { color: t.textMuted }]}>
+              紐づいている写真はありません
+            </Text>
           )}
         </View>
 
         {/* Edit Button */}
         <Pressable
-          style={styles.editBtn}
+          style={[
+            styles.editBtn,
+            { borderColor: t.primaryBorder, backgroundColor: t.primaryLight },
+          ]}
           onPress={() => router.push({ pathname: "/edit-stay", params: { id: String(stay.id) } })}
         >
-          <Ionicons name="create-outline" size={18} color="#3b82f6" />
-          <Text style={styles.editBtnText}>この滞在を編集</Text>
+          <Ionicons name="create-outline" size={18} color={t.primary} />
+          <Text style={[styles.editBtnText, { color: t.primary }]}>この滞在を編集</Text>
         </Pressable>
       </ScrollView>
 
-      <PhotoViewer photo={viewerPhoto} onClose={() => setViewerPhoto(null)} />
+      <PhotoViewer photo={viewerPhoto} onClose={() => setViewerPhoto(null)} theme={t} />
     </>
   );
 }
@@ -237,7 +281,6 @@ export default function StayDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   scrollContent: {
     padding: 16,
@@ -247,10 +290,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 80,
     fontSize: 15,
-    color: "#94a3b8",
   },
   headerCard: {
-    backgroundColor: "#ffffff",
     borderRadius: 14,
     padding: 16,
     shadowColor: "#000",
@@ -268,7 +309,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#eff6ff",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -279,16 +319,13 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#0f172a",
   },
   activityLabel: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#3b82f6",
     marginTop: 2,
   },
   reviewBadge: {
-    backgroundColor: "#fef3c7",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -296,7 +333,6 @@ const styles = StyleSheet.create({
   reviewText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#d97706",
   },
   metaRow: {
     flexDirection: "row",
@@ -311,7 +347,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 13,
     fontVariant: ["tabular-nums"],
-    color: "#64748b",
   },
   confRow: {
     flexDirection: "row",
@@ -326,7 +361,6 @@ const styles = StyleSheet.create({
   },
   confText: {
     fontSize: 12,
-    color: "#94a3b8",
   },
   section: {
     marginTop: 20,
@@ -334,7 +368,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#0f172a",
     marginBottom: 10,
   },
   photoGrid: {
@@ -349,7 +382,6 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 1,
     borderRadius: 10,
-    backgroundColor: "#f1f5f9",
   },
   photoFallback: {
     justifyContent: "center",
@@ -358,13 +390,11 @@ const styles = StyleSheet.create({
   photoTime: {
     fontSize: 11,
     fontVariant: ["tabular-nums"],
-    color: "#94a3b8",
     textAlign: "center",
     marginTop: 3,
   },
   emptyPhotos: {
     fontSize: 14,
-    color: "#94a3b8",
     textAlign: "center",
     paddingVertical: 20,
   },
@@ -375,15 +405,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: "#dbeafe",
-    backgroundColor: "#eff6ff",
     borderRadius: 12,
     paddingVertical: 14,
   },
   editBtnText: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#3b82f6",
   },
   viewerOverlay: {
     flex: 1,
@@ -395,7 +422,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   viewerFallback: {
-    backgroundColor: "#1e293b",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -403,7 +429,6 @@ const styles = StyleSheet.create({
   viewerTime: {
     fontSize: 14,
     fontVariant: ["tabular-nums"],
-    color: "#ffffff",
     marginTop: 12,
   },
 });

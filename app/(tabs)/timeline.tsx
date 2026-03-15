@@ -17,6 +17,7 @@ import { AdBanner } from "@/features/monetization/AdBanner";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
+import { useTheme } from "@/features/theme/ThemeContext";
 
 function dayKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -86,6 +87,7 @@ function hourLabel(ts: number): string {
 
 export default function TimelineScreen() {
   const db = useSQLiteContext();
+  const { theme: t } = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
@@ -118,10 +120,6 @@ export default function TimelineScreen() {
     setCurrentDate((d) => isToday(d) ? d : addDays(d, 1));
   }, []);
 
-  const goToToday = useCallback(() => {
-    setCurrentDate(new Date());
-  }, []);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData(currentDate);
@@ -140,25 +138,25 @@ export default function TimelineScreen() {
       <>
         {showHourHeader && (
           <View style={styles.hourHeader}>
-            <Text style={styles.hourText}>{hourLabel(item.ts)}</Text>
-            <View style={styles.hourLine} />
+            <Text style={[styles.hourText, { color: t.textSecondary }]}>{hourLabel(item.ts)}</Text>
+            <View style={[styles.hourLine, { backgroundColor: t.surfaceBorder }]} />
           </View>
         )}
         <View style={[styles.eventRow, item.isMoving && styles.eventRowMoving]}>
-          <Text style={styles.eventTime}>{formatTime(item.ts)}</Text>
-          <View style={[styles.eventDot, { backgroundColor: item.isMoving ? "#f59e0b" : "#3b82f6" }]} />
+          <Text style={[styles.eventTime, { color: t.textSecondary }]}>{formatTime(item.ts)}</Text>
+          <View style={[styles.eventDot, { backgroundColor: item.isMoving ? t.warning : t.primary }]} />
           <View style={styles.eventInfo}>
             {item.stayName ? (
-              <Text style={styles.eventPlace} numberOfLines={1}>{item.stayName}</Text>
+              <Text style={[styles.eventPlace, { color: t.text }]} numberOfLines={1}>{item.stayName}</Text>
             ) : (
-              <Text style={styles.eventMoving}>移動中</Text>
+              <Text style={[styles.eventMoving, { color: t.warning }]}>移動中</Text>
             )}
-            <Text style={styles.eventCoord}>
+            <Text style={[styles.eventCoord, { color: t.textMuted }]}>
               {formatCoord(item.lat)}, {formatCoord(item.lng)}
             </Text>
           </View>
           {item.acc > 0 && (
-            <Text style={[styles.eventAcc, item.acc > 100 && styles.eventAccWarn]}>
+            <Text style={[styles.eventAcc, { color: t.textMuted }, item.acc > 100 && { color: t.warning }]}>
               ±{Math.round(item.acc)}m
             </Text>
           )}
@@ -168,23 +166,22 @@ export default function TimelineScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Date Navigation */}
-      <View style={styles.dateNav}>
-        <Pressable onPress={goToPrevDay} style={styles.navBtn} hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color="#3b82f6" />
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <View style={[styles.dateNav, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
+        <Pressable onPress={goToPrevDay} style={[styles.navBtn, { backgroundColor: t.divider }]} hitSlop={8}>
+          <Ionicons name="chevron-back" size={20} color={t.primary} />
         </Pressable>
         <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
-          <Text style={styles.dateText}>{formatDisplayDate(currentDate)}</Text>
-          {isTodayView && <Text style={styles.todayBadge}>今日</Text>}
+          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate)}</Text>
+          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>今日</Text>}
         </Pressable>
         <Pressable
           onPress={goToNextDay}
-          style={[styles.navBtn, isTodayView && { opacity: 0.3 }]}
+          style={[styles.navBtn, { backgroundColor: t.divider }, isTodayView && { opacity: 0.3 }]}
           disabled={isTodayView}
           hitSlop={8}
         >
-          <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+          <Ionicons name="chevron-forward" size={20} color={t.primary} />
         </Pressable>
       </View>
       <CalendarPicker
@@ -194,18 +191,16 @@ export default function TimelineScreen() {
         onClose={() => setCalendarOpen(false)}
       />
 
-      {/* Summary bar */}
-      <View style={styles.summaryBar}>
-        <Text style={styles.summaryText}>
+      <View style={[styles.summaryBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
+        <Text style={[styles.summaryText, { color: t.textMuted }]}>
           {events.length}件の記録 · {stays.length}件の滞在を検出
         </Text>
       </View>
 
-      {/* Event Feed */}
       {events.length === 0 ? (
         <View style={styles.placeholder}>
-          <Ionicons name="pulse-outline" size={40} color="#cbd5e1" />
-          <Text style={styles.placeholderText}>この日の記録はありません</Text>
+          <Ionicons name="pulse-outline" size={40} color={t.textMuted} />
+          <Text style={[styles.placeholderText, { color: t.textMuted }]}>この日の記録はありません</Text>
         </View>
       ) : (
         <FlatList
@@ -227,7 +222,6 @@ export default function TimelineScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   dateNav: {
     flexDirection: "row",
@@ -235,14 +229,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#ffffff",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e2e8f0",
   },
   navBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
   },
   dateCenter: {
     alignItems: "center",
@@ -250,24 +241,19 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#0f172a",
   },
   todayBadge: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#3b82f6",
     marginTop: 1,
   },
   summaryBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#ffffff",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e2e8f0",
   },
   summaryText: {
     fontSize: 12,
-    color: "#94a3b8",
   },
   listContent: {
     paddingVertical: 4,
@@ -284,12 +270,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
-    color: "#475569",
   },
   hourLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e2e8f0",
   },
   eventRow: {
     flexDirection: "row",
@@ -305,7 +289,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     fontVariant: ["tabular-nums"],
-    color: "#64748b",
   },
   eventDot: {
     width: 8,
@@ -319,26 +302,19 @@ const styles = StyleSheet.create({
   eventPlace: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#0f172a",
   },
   eventMoving: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#f59e0b",
   },
   eventCoord: {
     fontSize: 11,
     fontVariant: ["tabular-nums"],
-    color: "#94a3b8",
     marginTop: 1,
   },
   eventAcc: {
     fontSize: 11,
     fontVariant: ["tabular-nums"],
-    color: "#cbd5e1",
-  },
-  eventAccWarn: {
-    color: "#f59e0b",
   },
   placeholder: {
     flex: 1,
@@ -348,7 +324,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 15,
-    color: "#94a3b8",
     textAlign: "center",
     lineHeight: 24,
   },

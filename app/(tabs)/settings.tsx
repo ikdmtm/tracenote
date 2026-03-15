@@ -20,90 +20,34 @@ import {
   type PhotoPermissionState,
 } from "@/features/photos/usePhotoPermission";
 import { useSubscription } from "@/features/monetization/SubscriptionContext";
+import { useTheme } from "@/features/theme/ThemeContext";
+import { THEME_LIST, type ThemeId } from "@/features/theme/colors";
 
 function parseTime(val: string): { h: number; m: number } {
   const [h, m] = val.split(":").map(Number);
   return { h: h ?? 0, m: m ?? 0 };
 }
 
-function formatTime(h: number, m: number): string {
+function formatTimeStr(h: number, m: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 function cycleHour(current: string, delta: number): string {
   const { h, m } = parseTime(current);
   const next = (h + delta + 24) % 24;
-  return formatTime(next, m);
+  return formatTimeStr(next, m);
 }
 
 function cycleMinute(current: string, delta: number): string {
   const { h, m } = parseTime(current);
   const next = (m + delta + 60) % 60;
-  return formatTime(h, next);
-}
-
-type SettingRowProps = {
-  label: string;
-  description: string;
-  value: string;
-  onChangeHour: (delta: number) => void;
-  onChangeMinute: (delta: number) => void;
-};
-
-function TimeSettingRow({
-  label,
-  description,
-  value,
-  onChangeHour,
-  onChangeMinute,
-}: SettingRowProps) {
-  const { h, m } = parseTime(value);
-  return (
-    <View style={styles.settingRow}>
-      <View style={styles.settingInfo}>
-        <Text style={styles.settingLabel}>{label}</Text>
-        <Text style={styles.settingDescription}>{description}</Text>
-      </View>
-      <View style={styles.timePickerRow}>
-        <View style={styles.timeUnit}>
-          <Pressable
-            style={styles.arrowButton}
-            onPress={() => onChangeHour(1)}
-          >
-            <Ionicons name="chevron-up" size={18} color="#64748b" />
-          </Pressable>
-          <Text style={styles.timeText}>{String(h).padStart(2, "0")}</Text>
-          <Pressable
-            style={styles.arrowButton}
-            onPress={() => onChangeHour(-1)}
-          >
-            <Ionicons name="chevron-down" size={18} color="#64748b" />
-          </Pressable>
-        </View>
-        <Text style={styles.timeSeparator}>:</Text>
-        <View style={styles.timeUnit}>
-          <Pressable
-            style={styles.arrowButton}
-            onPress={() => onChangeMinute(15)}
-          >
-            <Ionicons name="chevron-up" size={18} color="#64748b" />
-          </Pressable>
-          <Text style={styles.timeText}>{String(m).padStart(2, "0")}</Text>
-          <Pressable
-            style={styles.arrowButton}
-            onPress={() => onChangeMinute(-15)}
-          >
-            <Ionicons name="chevron-down" size={18} color="#64748b" />
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
+  return formatTimeStr(h, next);
 }
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const { theme: t, themeId, setThemeId } = useTheme();
 
   const [dayEndTime, setDayEndTime] = useState<string>("03:00");
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
@@ -132,68 +76,113 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: t.bg }]}
       contentContainerStyle={styles.content}
     >
+      {/* Theme Selector */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>時刻設定</Text>
-        <View style={styles.card}>
-          <TimeSettingRow
-            label="活動終了時刻"
-            description="1日の区切り時刻"
-            value={dayEndTime}
-            onChangeHour={(d) =>
-              updateDayEndTime(cycleHour(dayEndTime, d))
-            }
-            onChangeMinute={(d) =>
-              updateDayEndTime(cycleMinute(dayEndTime, d))
-            }
-          />
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>テーマ</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          <View style={styles.themeRow}>
+            {THEME_LIST.map((th) => {
+              const selected = themeId === th.id;
+              return (
+                <Pressable
+                  key={th.id}
+                  style={[
+                    styles.themeOption,
+                    selected && { borderColor: t.primary },
+                  ]}
+                  onPress={() => setThemeId(th.id as ThemeId)}
+                >
+                  <View style={styles.themePreview}>
+                    <View style={[styles.themeCircle, { backgroundColor: th.primary }]} />
+                    <View style={[styles.themeCircle, { backgroundColor: th.accent }]} />
+                    <View style={[styles.themeCircle, { backgroundColor: th.bg, borderWidth: 1, borderColor: th.surfaceBorder }]} />
+                  </View>
+                  <Text style={[
+                    styles.themeName,
+                    { color: selected ? t.primary : t.textSecondary },
+                    selected && { fontWeight: "700" },
+                  ]}>{th.name}</Text>
+                  {selected && (
+                    <Ionicons name="checkmark-circle" size={16} color={t.primary} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </View>
 
+      {/* Time Settings */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>パーミッション</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>時刻設定</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: t.text }]}>活動終了時刻</Text>
+              <Text style={[styles.settingDescription, { color: t.textMuted }]}>1日の区切り時刻</Text>
+            </View>
+            <View style={styles.timePickerRow}>
+              <View style={styles.timeUnit}>
+                <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleHour(dayEndTime, 1))}>
+                  <Ionicons name="chevron-up" size={18} color={t.textSecondary} />
+                </Pressable>
+                <Text style={[styles.timeText, { color: t.text }]}>{String(parseTime(dayEndTime).h).padStart(2, "0")}</Text>
+                <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleHour(dayEndTime, -1))}>
+                  <Ionicons name="chevron-down" size={18} color={t.textSecondary} />
+                </Pressable>
+              </View>
+              <Text style={[styles.timeSeparator, { color: t.text }]}>:</Text>
+              <View style={styles.timeUnit}>
+                <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleMinute(dayEndTime, 15))}>
+                  <Ionicons name="chevron-up" size={18} color={t.textSecondary} />
+                </Pressable>
+                <Text style={[styles.timeText, { color: t.text }]}>{String(parseTime(dayEndTime).m).padStart(2, "0")}</Text>
+                <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleMinute(dayEndTime, -15))}>
+                  <Ionicons name="chevron-down" size={18} color={t.textSecondary} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Permissions */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>パーミッション</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
           <View style={styles.menuRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuLabel}>写真アクセス</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.menuLabel, { color: t.text }]}>写真アクセス</Text>
+              <Text style={[styles.settingDescription, { color: t.textMuted }]}>
                 滞在中の写真を自動で紐づけます
               </Text>
             </View>
             {photoStatus === "granted" ? (
               <View style={[styles.permBadge, { backgroundColor: "#dcfce7" }]}>
-                <Text style={[styles.permBadgeText, { color: "#16a34a" }]}>許可済み</Text>
+                <Text style={[styles.permBadgeText, { color: t.success }]}>許可済み</Text>
               </View>
             ) : photoStatus === "limited" ? (
-              <Pressable
-                style={[styles.permBadge, { backgroundColor: "#fef3c7" }]}
-                onPress={openPhotoSettings}
-              >
-                <Text style={[styles.permBadgeText, { color: "#d97706" }]}>一部許可</Text>
+              <Pressable style={[styles.permBadge, { backgroundColor: "#fef3c7" }]} onPress={openPhotoSettings}>
+                <Text style={[styles.permBadgeText, { color: t.warning }]}>一部許可</Text>
               </Pressable>
             ) : photoStatus === "denied" ? (
-              <Pressable
-                style={[styles.permBadge, { backgroundColor: "#fee2e2" }]}
-                onPress={openPhotoSettings}
-              >
-                <Text style={[styles.permBadgeText, { color: "#dc2626" }]}>拒否</Text>
+              <Pressable style={[styles.permBadge, { backgroundColor: "#fee2e2" }]} onPress={openPhotoSettings}>
+                <Text style={[styles.permBadgeText, { color: t.danger }]}>拒否</Text>
               </Pressable>
             ) : (
-              <Pressable
-                style={[styles.permBadge, { backgroundColor: "#eff6ff" }]}
-                onPress={requestPhotoPermission}
-              >
-                <Text style={[styles.permBadgeText, { color: "#3b82f6" }]}>許可する</Text>
+              <Pressable style={[styles.permBadge, { backgroundColor: t.primaryLight }]} onPress={requestPhotoPermission}>
+                <Text style={[styles.permBadgeText, { color: t.primary }]}>許可する</Text>
               </Pressable>
             )}
           </View>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <View style={styles.menuRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuLabel}>スクリーンショットを除外</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.menuLabel, { color: t.text }]}>スクリーンショットを除外</Text>
+              <Text style={[styles.settingDescription, { color: t.textMuted }]}>
                 写真マッチングからスクショを除外します
               </Text>
             </View>
@@ -203,38 +192,37 @@ export default function SettingsScreen() {
                 setExcludeScreenshots(val);
                 await setSetting(db, "exclude_screenshots", val ? "true" : "false");
               }}
-              trackColor={{ false: "#e2e8f0", true: "#93c5fd" }}
-              thumbColor={excludeScreenshots ? "#3b82f6" : "#f4f4f5"}
+              trackColor={{ false: t.surfaceBorder, true: t.switchTrack }}
+              thumbColor={excludeScreenshots ? t.primary : "#f4f4f5"}
             />
           </View>
         </View>
       </View>
 
+      {/* Data */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>データ</Text>
-        <View style={styles.card}>
-          <Pressable
-            style={styles.menuRow}
-            onPress={() => router.push("/export")}
-          >
-            <Text style={styles.menuLabel}>エクスポート</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>データ</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          <Pressable style={styles.menuRow} onPress={() => router.push("/export")}>
+            <Text style={[styles.menuLabel, { color: t.text }]}>エクスポート</Text>
+            <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
           </Pressable>
         </View>
       </View>
 
+      {/* Home Detection */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ホーム判定</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>ホーム判定</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
           <View style={styles.menuRow}>
-            <Text style={styles.menuLabel}>ステータス</Text>
-            <Text style={styles.menuValue}>
+            <Text style={[styles.menuLabel, { color: t.text }]}>ステータス</Text>
+            <Text style={[styles.menuValue, { color: t.textMuted }]}>
               {homeLocation
                 ? `判定済み (${homeLocation.lat.toFixed(3)}, ${homeLocation.lng.toFixed(3)})`
                 : "未判定（データ蓄積中）"}
             </Text>
           </View>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
@@ -246,56 +234,45 @@ export default function SettingsScreen() {
               );
             }}
           >
-            <Text style={[styles.menuLabel, { color: "#3b82f6" }]}>再判定する</Text>
+            <Text style={[styles.menuLabel, { color: t.primary }]}>再判定する</Text>
           </Pressable>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={() =>
-              Alert.alert(
-                "ホーム判定をリセット",
-                "蓄積したホーム判定データをリセットしますか？",
-                [
-                  { text: "キャンセル", style: "cancel" },
-                  {
-                    text: "リセット",
-                    style: "destructive",
-                    onPress: async () => {
-                      await setSetting(db, "home_location", "");
-                      setHomeLocation(null);
-                    },
+              Alert.alert("ホーム判定をリセット", "蓄積したホーム判定データをリセットしますか？", [
+                { text: "キャンセル", style: "cancel" },
+                {
+                  text: "リセット",
+                  style: "destructive",
+                  onPress: async () => {
+                    await setSetting(db, "home_location", "");
+                    setHomeLocation(null);
                   },
-                ],
-              )
+                },
+              ])
             }
           >
-            <Text style={[styles.menuLabel, { color: "#ef4444" }]}>
-              ホーム判定をリセット
-            </Text>
+            <Text style={[styles.menuLabel, { color: t.danger }]}>ホーム判定をリセット</Text>
           </Pressable>
         </View>
       </View>
 
+      {/* Subscription */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>サブスクリプション</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>サブスクリプション</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
           <View style={styles.menuRow}>
-            <Text style={styles.menuLabel}>プラン</Text>
-            <View style={isPro
-              ? [styles.permBadge, { backgroundColor: "#dbeafe" }] as any
-              : [styles.permBadge, { backgroundColor: "#f1f5f9" }] as any
-            }>
-              <Text style={isPro
-                ? [styles.permBadgeText, { color: "#2563eb" }] as any
-                : [styles.permBadgeText, { color: "#64748b" }] as any
-              }>
+            <Text style={[styles.menuLabel, { color: t.text }]}>プラン</Text>
+            <View style={[styles.permBadge, { backgroundColor: isPro ? t.primaryLight : t.divider }]}>
+              <Text style={[styles.permBadgeText, { color: isPro ? t.primary : t.textSecondary }]}>
                 {isPro ? "Pro（広告なし）" : "Free（広告あり）"}
               </Text>
             </View>
           </View>
           {!isPro && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
               <Pressable
                 style={styles.menuRow}
                 onPress={async () => {
@@ -310,36 +287,29 @@ export default function SettingsScreen() {
                   }
                 }}
               >
-                <Text style={[styles.menuLabel, { color: "#3b82f6" }]}>
-                  Proにアップグレード
-                </Text>
+                <Text style={[styles.menuLabel, { color: t.primary }]}>Proにアップグレード</Text>
               </Pressable>
             </>
           )}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const ok = await restore();
-                Alert.alert(
-                  "購入の復元",
-                  ok ? "Proプランを復元しました" : "復元可能な購入が見つかりませんでした",
-                );
+                Alert.alert("購入の復元", ok ? "Proプランを復元しました" : "復元可能な購入が見つかりませんでした");
               } catch (e) {
                 Alert.alert("エラー", String(e));
               }
             }}
           >
-            <Text style={styles.menuLabel}>購入を復元</Text>
+            <Text style={[styles.menuLabel, { color: t.text }]}>購入を復元</Text>
           </Pressable>
           {__DEV__ && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
               <View style={styles.menuRow}>
-                <Text style={[styles.menuLabel, { color: "#f59e0b" }]}>
-                  🛠 Dev: Pro切替
-                </Text>
+                <Text style={[styles.menuLabel, { color: t.warning }]}>🛠 Dev: Pro切替</Text>
                 <Switch value={isPro} onValueChange={toggleDevPro} />
               </View>
             </>
@@ -347,72 +317,61 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Debug */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>デバッグ</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>デバッグ</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const result = await seedTestDay(db, 0);
-                Alert.alert(
-                  "テストデータ生成完了",
-                  `今日: ${result.events}イベント → ${result.stays}滞在を検出`,
-                );
+                Alert.alert("テストデータ生成完了", `今日: ${result.events}イベント → ${result.stays}滞在を検出`);
               } catch (e) {
                 Alert.alert("エラー", String(e));
               }
             }}
           >
-            <Text style={styles.menuLabel}>今日のテストデータを生成</Text>
+            <Text style={[styles.menuLabel, { color: t.text }]}>今日のテストデータを生成</Text>
           </Pressable>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const r0 = await seedTestDay(db, 1);
                 const r1 = await seedTestDay(db, 2);
-                Alert.alert(
-                  "テストデータ生成完了",
-                  `昨日: ${r0.events}イベント → ${r0.stays}滞在\n一昨日: ${r1.events}イベント → ${r1.stays}滞在`,
-                );
+                Alert.alert("テストデータ生成完了", `昨日: ${r0.events}イベント → ${r0.stays}滞在\n一昨日: ${r1.events}イベント → ${r1.stays}滞在`);
               } catch (e) {
                 Alert.alert("エラー", String(e));
               }
             }}
           >
-            <Text style={styles.menuLabel}>過去2日分のテストデータを生成</Text>
+            <Text style={[styles.menuLabel, { color: t.text }]}>過去2日分のテストデータを生成</Text>
           </Pressable>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={() =>
-              Alert.alert(
-                "全データを削除",
-                "RawEvent・Stay・日記をすべて削除します。",
-                [
-                  { text: "キャンセル", style: "cancel" },
-                  {
-                    text: "削除",
-                    style: "destructive",
-                    onPress: async () => {
-                      await clearAllData(db);
-                      Alert.alert("完了", "全データを削除しました");
-                    },
+              Alert.alert("全データを削除", "RawEvent・Stay・日記をすべて削除します。", [
+                { text: "キャンセル", style: "cancel" },
+                {
+                  text: "削除",
+                  style: "destructive",
+                  onPress: async () => {
+                    await clearAllData(db);
+                    Alert.alert("完了", "全データを削除しました");
                   },
-                ],
-              )
+                },
+              ])
             }
           >
-            <Text style={[styles.menuLabel, { color: "#ef4444" }]}>
-              全データを削除
-            </Text>
+            <Text style={[styles.menuLabel, { color: t.danger }]}>全データを削除</Text>
           </Pressable>
         </View>
       </View>
 
-      <Text style={styles.version}>TraceNote v0.1.0</Text>
+      <Text style={[styles.version, { color: t.textMuted }]}>TraceNote v0.1.0</Text>
     </ScrollView>
   );
 }
@@ -420,7 +379,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   content: {
     paddingVertical: 16,
@@ -431,17 +389,41 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: "#ffffff",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e2e8f0",
+  },
+  themeRow: {
+    flexDirection: "row",
+    padding: 12,
+    gap: 10,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+    gap: 6,
+  },
+  themePreview: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  themeCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  themeName: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   settingRow: {
     flexDirection: "row",
@@ -457,11 +439,9 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#0f172a",
   },
   settingDescription: {
     fontSize: 13,
-    color: "#94a3b8",
     marginTop: 2,
   },
   timePickerRow: {
@@ -479,17 +459,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#0f172a",
   },
   timeSeparator: {
     fontSize: 22,
     fontWeight: "600",
-    color: "#0f172a",
     marginHorizontal: 2,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "#e2e8f0",
     marginLeft: 16,
   },
   menuRow: {
@@ -501,11 +478,9 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     fontSize: 16,
-    color: "#0f172a",
   },
   menuValue: {
     fontSize: 15,
-    color: "#94a3b8",
   },
   permBadge: {
     paddingHorizontal: 12,
@@ -519,7 +494,6 @@ const styles = StyleSheet.create({
   version: {
     textAlign: "center",
     fontSize: 13,
-    color: "#cbd5e1",
     marginTop: 8,
     marginBottom: 32,
   },
