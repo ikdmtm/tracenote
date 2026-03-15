@@ -11,10 +11,11 @@ import {
   View,
 } from "react-native";
 
-import type { Stay, StayPhoto } from "@/core/domain/models";
+import type { Stay, StayPhoto, MovementRow } from "@/core/domain/models";
 import { getRawEventCount } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
+import { getMovementsByDay, updateMovementUserMode } from "@/core/storage/movementRepo";
 import {
   startBackgroundLocation,
 } from "@/core/location/backgroundTask";
@@ -28,8 +29,10 @@ import {
   MOVEMENT_ICONS,
   MOVEMENT_LABELS,
   type Movement,
+  type MovementMode,
 } from "@/core/engine/movementEstimator";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
+import { MovementModePicker } from "@/features/movements/MovementModePicker";
 
 function StatusBadge({ status }: { status: PermissionState }) {
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
@@ -81,9 +84,11 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
+type DisplayMovement = Movement & { dbId?: number; userMode?: string | null };
+
 type ListItem =
   | { type: "stay"; stay: Stay; photos: StayPhoto[] }
-  | { type: "movement"; movement: Movement };
+  | { type: "movement"; movement: DisplayMovement };
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
@@ -93,9 +98,11 @@ export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [stays, setStays] = useState<Stay[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<number, StayPhoto[]>>({});
+  const [dbMovements, setDbMovements] = useState<MovementRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [bgStarted, setBgStarted] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [editingMovement, setEditingMovement] = useState<DisplayMovement | null>(null);
 
   const isTodayView = isToday(currentDate);
 
@@ -103,12 +110,14 @@ export default function HomeScreen() {
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     const dayEnd = dayStart + 24 * 60 * 60_000;
 
-    const [s, count] = await Promise.all([
+    const [s, count, mvRows] = await Promise.all([
       getStaysByDay(db, dayStart, dayEnd),
       isToday(date) ? getRawEventCount(db) : Promise.resolve(0),
+      getMovementsByDay(db, dayStart, dayEnd),
     ]);
     setStays(s);
     setEventCount(count);
+    setDbMovements(mvRows);
 
     const pMap: Record<number, StayPhoto[]> = {};
     for (const st of s) {
@@ -171,12 +180,30 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [refreshData, currentDate]);
 
-  const movements = useMemo(() => estimateMovements(stays), [stays]);
   const movementMap = useMemo(() => {
-    const map: Record<number, Movement> = {};
-    for (const m of movements) map[m.to_stay_id] = m;
+    const dbMap: Record<number, MovementRow> = {};
+    for (const m of dbMovements) dbMap[m.to_stay_id] = m;
+
+    const computed = estimateMovements(stays);
+    const map: Record<number, DisplayMovement> = {};
+    for (const c of computed) {
+      const dbRow = dbMap[c.to_stay_id];
+      if (dbRow) {
+        const effectiveMode = (dbRow.user_mode ?? dbRow.mode) as MovementMode;
+        map[c.to_stay_id] = {
+          ...c,
+          mode: effectiveMode,
+          dbId: dbRow.id,
+          userMode: dbRow.user_mode,
+        };
+      } else {
+        map[c.to_stay_id] = c;
+      }
+    }
     return map;
-  }, [movements]);
+  }, [stays, dbMovements]);
+
+  const movements = useMemo(() => Object.values(movementMap), [movementMap]);
 
   const listItems: ListItem[] = useMemo(() => {
     const items: ListItem[] = [];
@@ -199,22 +226,32 @@ export default function HomeScreen() {
     );
   }
 
+  const handleMovementModeChange = useCallback(async (mode: MovementMode) => {
+    if (!editingMovement?.dbId) return;
+    await updateMovementUserMode(db, editingMovement.dbId, mode);
+    await refreshData(currentDate);
+    setEditingMovement(null);
+  }, [db, editingMovement, refreshData, currentDate]);
+
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === "movement") {
       const m = item.movement;
-      const icon = MOVEMENT_ICONS[m.mode];
-      const label = MOVEMENT_LABELS[m.mode];
+      const effectiveMode = m.mode as MovementMode;
+      const icon = MOVEMENT_ICONS[effectiveMode];
+      const label = MOVEMENT_LABELS[effectiveMode];
+      const isEdited = !!m.userMode;
       return (
-        <View style={styles.movementRow}>
+        <Pressable style={styles.movementRow} onPress={() => setEditingMovement(m)}>
           <View style={styles.movementLine} />
-          <View style={styles.movementBubble}>
-            <Ionicons name={icon as any} size={14} color="#64748b" />
-            <Text style={styles.movementText}>
+          <View style={[styles.movementBubble, isEdited && styles.movementBubbleEdited]}>
+            <Ionicons name={icon as any} size={14} color={isEdited ? "#3b82f6" : "#64748b"} />
+            <Text style={[styles.movementText, isEdited && styles.movementTextEdited]}>
               {label} {formatDuration(m.duration_min)} · {formatDistance(m.distance_m)}
             </Text>
+            <Ionicons name="pencil-outline" size={10} color={isEdited ? "#3b82f6" : "#94a3b8"} />
           </View>
           <View style={styles.movementLine} />
-        </View>
+        </Pressable>
       );
     }
     return <StayCard stay={item.stay} photos={item.photos.length > 0 ? item.photos : undefined} />;
@@ -263,6 +300,12 @@ export default function HomeScreen() {
         selectedDate={currentDate}
         onSelect={setCurrentDate}
         onClose={() => setCalendarOpen(false)}
+      />
+      <MovementModePicker
+        visible={!!editingMovement}
+        currentMode={(editingMovement?.mode ?? "unknown") as MovementMode}
+        onSelect={handleMovementModeChange}
+        onClose={() => setEditingMovement(null)}
       />
 
       {/* Permission CTA - only when needed on today view */}
@@ -497,6 +540,13 @@ const styles = StyleSheet.create({
   movementText: {
     fontSize: 11,
     color: "#64748b",
+  },
+  movementBubbleEdited: {
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+  },
+  movementTextEdited: {
+    color: "#3b82f6",
   },
   shareBtn: {
     flexDirection: "row",

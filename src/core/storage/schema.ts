@@ -42,8 +42,24 @@ export const MIGRATIONS = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_stay_id INTEGER NOT NULL,
+    to_stay_id INTEGER NOT NULL,
+    start_ts INTEGER NOT NULL,
+    end_ts INTEGER NOT NULL,
+    distance_m INTEGER NOT NULL DEFAULT 0,
+    duration_min INTEGER NOT NULL DEFAULT 0,
+    avg_speed_kmh REAL NOT NULL DEFAULT 0,
+    mode TEXT NOT NULL DEFAULT 'unknown',
+    user_mode TEXT,
+    FOREIGN KEY (from_stay_id) REFERENCES stays(id) ON DELETE CASCADE,
+    FOREIGN KEY (to_stay_id) REFERENCES stays(id) ON DELETE CASCADE
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_raw_events_ts ON raw_events(ts)`,
   `CREATE INDEX IF NOT EXISTS idx_stays_start ON stays(start_ts)`,
   `CREATE INDEX IF NOT EXISTS idx_stay_photos_stay ON stay_photos(stay_id)`,
   `CREATE INDEX IF NOT EXISTS idx_diary_day ON diary_entries(day_key)`,
+  `CREATE INDEX IF NOT EXISTS idx_movements_from ON movements(from_stay_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_movements_to ON movements(to_stay_id)`,
 ] as const;

@@ -3,8 +3,10 @@ import type { SQLiteDatabase } from "expo-sqlite";
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getSetting } from "@/core/storage/settingsRepo";
+import { upsertMovements } from "@/core/storage/movementRepo";
 import { detectStays } from "@/core/engine/stayDetector";
 import { enrichStays } from "@/core/engine/enrichService";
+import { estimateMovements } from "@/core/engine/movementEstimator";
 import { matchPhotosForStays } from "@/core/photos/photoMatcher";
 import { syncStayPhotos } from "@/core/storage/stayPhotoRepo";
 
@@ -40,6 +42,10 @@ export async function runStayDetection(
 
   const insertedStays = await getStaysByDay(db, startTs, endTs);
   await enrichStays(db, insertedStays);
+
+  // Persist movement estimates (preserves user_mode overrides via upsert)
+  const movements = estimateMovements(insertedStays);
+  await upsertMovements(db, movements);
 
   try {
     const exclScreenshots = (await getSetting(db, "exclude_screenshots")) !== "false";

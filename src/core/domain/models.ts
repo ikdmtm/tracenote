@@ -39,3 +39,16 @@ export type StayPhoto = {
   height: number;
   taken_at: number;
 };
+
+export type MovementRow = {
+  id: number;
+  from_stay_id: number;
+  to_stay_id: number;
+  start_ts: number;
+  end_ts: number;
+  distance_m: number;
+  duration_min: number;
+  avg_speed_kmh: number;
+  mode: string;
+  user_mode: string | null;
+};
