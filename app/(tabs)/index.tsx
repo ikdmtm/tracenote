@@ -47,18 +47,24 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (status === "always" && !bgStarted) {
-      startBackgroundLocation().then((ok) => setBgStarted(ok));
+      startBackgroundLocation()
+        .then((ok) => setBgStarted(ok))
+        .catch(() => setBgStarted(false));
     }
   }, [status, bgStarted]);
 
   const handlePermissionPress = useCallback(async () => {
-    if (status === "undetermined" || status === "foreground") {
-      const result = await requestAlways();
-      if (result === "always") {
-        startBackgroundLocation().then((ok) => setBgStarted(ok));
+    try {
+      if (status === "undetermined" || status === "foreground") {
+        const result = await requestAlways();
+        if (result === "always") {
+          await startBackgroundLocation().then((ok) => setBgStarted(ok));
+        }
+      } else if (status === "denied") {
+        openSettings();
       }
-    } else if (status === "denied") {
-      openSettings();
+    } catch (e) {
+      console.warn("[Home] Permission/BG start error:", e);
     }
   }, [status, requestAlways, openSettings]);
 
