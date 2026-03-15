@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+import i18n from "@/i18n";
 
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() &&
@@ -36,6 +36,7 @@ type CalendarPickerProps = {
 export function CalendarPicker({ visible, selectedDate, onSelect, onClose }: CalendarPickerProps) {
   const [viewYear, setViewYear] = useState(selectedDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
+  const weekdays = i18n.t("calendar.weekdays", { returnObjects: true }) as string[];
 
   const goToPrevMonth = useCallback(() => {
     setViewMonth((m) => {
@@ -89,7 +90,7 @@ export function CalendarPicker({ visible, selectedDate, onSelect, onClose }: Cal
 
           {/* Weekday Headers */}
           <View style={styles.weekRow}>
-            {WEEKDAY_LABELS.map((label, i) => (
+            {weekdays.map((label, i) => (
               <View key={i} style={styles.weekCell}>
                 <Text style={[styles.weekLabel, i === 0 && { color: "#ef4444" }, i === 6 && { color: "#3b82f6" }]}>
                   {label}
@@ -145,19 +146,19 @@ export function CalendarPicker({ visible, selectedDate, onSelect, onClose }: Cal
               style={styles.quickBtn}
               onPress={() => { onSelect(today); onClose(); }}
             >
-              <Text style={styles.quickBtnText}>今日</Text>
+              <Text style={styles.quickBtnText}>{i18n.t("calendar.today")}</Text>
             </Pressable>
             <Pressable
               style={styles.quickBtn}
               onPress={() => { onSelect(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)); onClose(); }}
             >
-              <Text style={styles.quickBtnText}>昨日</Text>
+              <Text style={styles.quickBtnText}>{i18n.t("calendar.yesterday")}</Text>
             </Pressable>
             <Pressable
               style={styles.quickBtn}
               onPress={() => { onSelect(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7)); onClose(); }}
             >
-              <Text style={styles.quickBtnText}>1週間前</Text>
+              <Text style={styles.quickBtnText}>{i18n.t("calendar.oneWeekAgo")}</Text>
             </Pressable>
           </View>
         </Pressable>

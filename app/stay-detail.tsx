@@ -3,6 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   Image,
@@ -19,8 +20,7 @@ import { getStayById } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
 import { useTheme } from "@/features/theme/ThemeContext";
 import type { ThemeColors } from "@/features/theme/colors";
-import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import type { PlaceCategory } from "@/core/places/categories";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -29,32 +29,35 @@ function formatTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function formatDate(ts: number): string {
+function formatDate(ts: number, weekdays: string[]): string {
   const d = new Date(ts);
-  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   return `${d.getMonth() + 1}/${d.getDate()}（${weekdays[d.getDay()]}）`;
 }
 
-function durationLabel(startTs: number, endTs: number): string {
+function durationLabel(startTs: number, endTs: number, t: (key: string, opts?: Record<string, number>) => string): string {
   const mins = Math.round((endTs - startTs) / 60_000);
-  if (mins < 60) return `${mins}分`;
+  if (mins < 60) return t("format.minutes", { m: mins });
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
+  return m > 0 ? t("format.hoursMinutes", { h, m }) : t("format.hours", { h });
 }
 
-function resolvePlaceName(stay: Stay): string {
+function resolvePlaceName(
+  stay: Stay,
+  fallback: string,
+  categoryT: (key: string) => string,
+): string {
   if (stay.user_place_name) return stay.user_place_name;
   if (stay.place_json) {
     try {
       const parsed = JSON.parse(stay.place_json);
       if (parsed.top?.name) return parsed.top.name;
       if (parsed.top?.category && parsed.top.category !== "other") {
-        return CATEGORY_LABELS[parsed.top.category as PlaceCategory] ?? parsed.top.category;
+        return categoryT(`category.${parsed.top.category}`) || parsed.top.category;
       }
     } catch {}
   }
-  return `滞在地点`;
+  return fallback;
 }
 
 const ACTIVITY_ICON: Record<string, string> = {
@@ -110,7 +113,8 @@ function PhotoViewer({
 }
 
 export default function StayDetailScreen() {
-  const { theme: t } = useTheme();
+  const { t } = useTranslation();
+  const { theme: themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
@@ -136,14 +140,15 @@ export default function StayDetailScreen() {
 
   if (loading || !stay) {
     return (
-      <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: themeColors.bg }]}>
+        <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>{t("stayDetail.loading")}</Text>
       </View>
     );
   }
 
-  const placeName = resolvePlaceName(stay);
-  const actLabel = stay.activity ? (ACTIVITY_LABELS[stay.activity as Activity] ?? stay.activity) : null;
+  const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
+  const placeName = resolvePlaceName(stay, t("stayDetail.stayAt"), (k) => t(k));
+  const actLabel = stay.activity ? (t(`activity.${stay.activity}`) || stay.activity) : null;
   const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
 
   return (
@@ -151,65 +156,65 @@ export default function StayDetailScreen() {
       <Stack.Screen
         options={{
           title: placeName,
-          headerBackTitle: "戻る",
+          headerBackTitle: t("stayDetail.back"),
           headerRight: () => (
             <Pressable
               onPress={() => router.push({ pathname: "/edit-stay", params: { id: String(stay.id) } })}
               hitSlop={8}
             >
-              <Ionicons name="create-outline" size={22} color={t.primary} />
+              <Ionicons name="create-outline" size={22} color={themeColors.primary} />
             </Pressable>
           ),
         }}
       />
       <ScrollView
-        style={[styles.container, { backgroundColor: t.bg }]}
+        style={[styles.container, { backgroundColor: themeColors.bg }]}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header Card */}
-        <View style={[styles.headerCard, { backgroundColor: t.surface }]}>
+        <View style={[styles.headerCard, { backgroundColor: themeColors.surface }]}>
           <View style={styles.headerTop}>
-            <View style={[styles.iconCircle, { backgroundColor: t.primaryLight }]}>
-              <Ionicons name={icon as any} size={24} color={t.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: themeColors.primaryLight }]}>
+              <Ionicons name={icon as any} size={24} color={themeColors.primary} />
             </View>
             <View style={styles.headerInfo}>
-              <Text style={[styles.placeName, { color: t.text }]}>{placeName}</Text>
+              <Text style={[styles.placeName, { color: themeColors.text }]}>{placeName}</Text>
               {actLabel && (
-                <Text style={[styles.activityLabel, { color: t.primary }]}>{actLabel}</Text>
+                <Text style={[styles.activityLabel, { color: themeColors.primary }]}>{actLabel}</Text>
               )}
             </View>
             {stay.needs_review && (
-              <View style={[styles.reviewBadge, { backgroundColor: t.divider }]}>
-                <Text style={[styles.reviewText, { color: t.warning }]}>要確認</Text>
+              <View style={[styles.reviewBadge, { backgroundColor: themeColors.divider }]}>
+                <Text style={[styles.reviewText, { color: themeColors.warning }]}>{t("stayDetail.needsReview")}</Text>
               </View>
             )}
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={16} color={t.textSecondary} />
-              <Text style={[styles.metaText, { color: t.textSecondary }]}>
+              <Ionicons name="time-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
                 {formatTime(stay.start_ts)} 〜 {formatTime(stay.end_ts)}
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="hourglass-outline" size={16} color={t.textSecondary} />
-              <Text style={[styles.metaText, { color: t.textSecondary }]}>
-                {durationLabel(stay.start_ts, stay.end_ts)}
+              <Ionicons name="hourglass-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+                {durationLabel(stay.start_ts, stay.end_ts, t)}
               </Text>
             </View>
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={16} color={t.textSecondary} />
-              <Text style={[styles.metaText, { color: t.textSecondary }]}>
-                {formatDate(stay.start_ts)}
+              <Ionicons name="calendar-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+                {formatDate(stay.start_ts, weekdays)}
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="navigate-outline" size={16} color={t.textSecondary} />
-              <Text style={[styles.metaText, { color: t.textSecondary }]}>
+              <Ionicons name="navigate-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
                 {stay.lat.toFixed(4)}, {stay.lng.toFixed(4)}
               </Text>
             </View>
@@ -222,22 +227,30 @@ export default function StayDetailScreen() {
                 {
                   backgroundColor:
                     stay.confidence >= 0.7
-                      ? t.success
+                      ? themeColors.success
                       : stay.confidence >= 0.4
-                        ? t.warning
-                        : t.danger,
+                        ? themeColors.warning
+                        : themeColors.danger,
                 },
               ]}
             />
-            <Text style={[styles.confText, { color: t.textMuted }]}>
-              精度 {Math.round(stay.confidence * 100)}%
+            <Text style={[styles.confText, { color: themeColors.textMuted }]}>
+              {t("stayDetail.accuracy", { value: Math.round(stay.confidence * 100) })}
             </Text>
           </View>
         </View>
 
+        {/* Memo Section */}
+        {stay.memo && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.memo")}</Text>
+            <Text style={[styles.memoText, { color: themeColors.textSecondary }]}>{stay.memo}</Text>
+          </View>
+        )}
+
         {/* Photos Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: t.text }]}>写真（{photos.length}枚）</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t("stayDetail.photos", { count: photos.length })}</Text>
           {photos.length > 0 ? (
             <View style={styles.photoGrid}>
               {photos.map((p) => (
@@ -245,17 +258,17 @@ export default function StayDetailScreen() {
                   {p.uri && !p.uri.startsWith("ph://") ? (
                     <Image source={{ uri: p.uri }} style={styles.photoThumb} />
                   ) : (
-                    <View style={[styles.photoThumb, styles.photoFallback, { backgroundColor: t.divider }]}>
-                      <Ionicons name="image-outline" size={24} color={t.textMuted} />
+                    <View style={[styles.photoThumb, styles.photoFallback, { backgroundColor: themeColors.divider }]}>
+                      <Ionicons name="image-outline" size={24} color={themeColors.textMuted} />
                     </View>
                   )}
-                  <Text style={[styles.photoTime, { color: t.textMuted }]}>{formatTime(p.taken_at)}</Text>
+                  <Text style={[styles.photoTime, { color: themeColors.textMuted }]}>{formatTime(p.taken_at)}</Text>
                 </Pressable>
               ))}
             </View>
           ) : (
-            <Text style={[styles.emptyPhotos, { color: t.textMuted }]}>
-              紐づいている写真はありません
+            <Text style={[styles.emptyPhotos, { color: themeColors.textMuted }]}>
+              {t("stayDetail.noPhotos")}
             </Text>
           )}
         </View>
@@ -264,16 +277,16 @@ export default function StayDetailScreen() {
         <Pressable
           style={[
             styles.editBtn,
-            { borderColor: t.primaryBorder, backgroundColor: t.primaryLight },
+            { borderColor: themeColors.primaryBorder, backgroundColor: themeColors.primaryLight },
           ]}
           onPress={() => router.push({ pathname: "/edit-stay", params: { id: String(stay.id) } })}
         >
-          <Ionicons name="create-outline" size={18} color={t.primary} />
-          <Text style={[styles.editBtnText, { color: t.primary }]}>この滞在を編集</Text>
+          <Ionicons name="create-outline" size={18} color={themeColors.primary} />
+          <Text style={[styles.editBtnText, { color: themeColors.primary }]}>{t("stayDetail.edit")}</Text>
         </Pressable>
       </ScrollView>
 
-      <PhotoViewer photo={viewerPhoto} onClose={() => setViewerPhoto(null)} theme={t} />
+      <PhotoViewer photo={viewerPhoto} onClose={() => setViewerPhoto(null)} theme={themeColors} />
     </>
   );
 }
@@ -364,6 +377,10 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 20,
+  },
+  memoText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 15,

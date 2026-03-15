@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
+import i18n from "@/i18n";
 import {
-  MOVEMENT_LABELS,
   MOVEMENT_ICONS,
   type MovementMode,
 } from "@/core/engine/movementEstimator";
@@ -21,7 +21,7 @@ export function MovementModePicker({ visible, currentMode, onSelect, onClose }: 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.overlay} onPress={onClose}>
         <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
-          <Text style={s.title}>移動手段を選択</Text>
+          <Text style={s.title}>{i18n.t("movementPicker.title")}</Text>
           {MODES.map((mode) => {
             const selected = mode === currentMode;
             return (
@@ -36,7 +36,7 @@ export function MovementModePicker({ visible, currentMode, onSelect, onClose }: 
                   color={selected ? "#3b82f6" : "#64748b"}
                 />
                 <Text style={[s.label, selected && s.labelSelected]}>
-                  {MOVEMENT_LABELS[mode]}
+                  {i18n.t(`movement.${mode}`)}
                 </Text>
                 {selected && (
                   <Ionicons name="checkmark" size={20} color="#3b82f6" style={s.check} />

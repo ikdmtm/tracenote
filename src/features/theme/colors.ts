@@ -46,7 +46,7 @@ export type ThemeColors = {
 
 export const simpleTheme: ThemeColors = {
   id: "simple",
-  name: "シンプル",
+  name: "simple",
 
   primary: "#3b82f6",
   primaryLight: "#eff6ff",
@@ -88,7 +88,7 @@ export const simpleTheme: ThemeColors = {
 
 export const naturalTheme: ThemeColors = {
   id: "natural",
-  name: "ナチュラル",
+  name: "natural",
 
   primary: "#C07A6E",
   primaryLight: "#FBF0ED",
@@ -130,7 +130,7 @@ export const naturalTheme: ThemeColors = {
 
 export const popTheme: ThemeColors = {
   id: "pop",
-  name: "ポップ",
+  name: "pop",
 
   primary: "#FF7B7B",
   primaryLight: "#FFF0EE",

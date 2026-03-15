@@ -1,3 +1,9 @@
+import i18n from "@/i18n";
+
+export function getCategoryLabel(c: string): string {
+  return i18n.t(`category.${c}`, { defaultValue: c });
+}
+
 export type PlaceCategory =
   | "restaurant"
   | "cafe"

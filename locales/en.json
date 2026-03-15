@@ -1,0 +1,7 @@
+{
+  "CFBundleDisplayName": "TraceNote",
+  "NSLocationWhenInUseUsageDescription": "Your location is used to automatically record your activity log.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is always used to automatically record your activity log, even when the app is not open.",
+  "NSLocationAlwaysUsageDescription": "Your location is always used to automatically record your activity log.",
+  "NSPhotoLibraryUsageDescription": "Your photo library is accessed to automatically link photos taken during stays."
+}

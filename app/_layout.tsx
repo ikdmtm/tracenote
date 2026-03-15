@@ -1,14 +1,17 @@
 import "@/core/location/backgroundTask";
+import "@/i18n";
 
 import { Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 
 import { DB_NAME, initDatabase } from "@/core/storage/db";
 import { SubscriptionProvider } from "@/features/monetization/SubscriptionContext";
 import { ThemeProvider } from "@/features/theme/ThemeContext";
 
 function AppContent() {
+  const { t } = useTranslation();
   return (
     <>
       <StatusBar style="dark" />
@@ -16,17 +19,17 @@ function AppContent() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="diary"
-          options={{ headerShown: true, title: "サマリー", presentation: "card" }}
+          options={{ headerShown: true, title: t("screenTitle.summary"), presentation: "card" }}
         />
         <Stack.Screen
           name="stay-detail"
-          options={{ headerShown: true, title: "滞在詳細", presentation: "card" }}
+          options={{ headerShown: true, title: t("screenTitle.stayDetail"), presentation: "card" }}
         />
         <Stack.Screen
           name="edit-stay"
           options={{
             headerShown: true,
-            title: "滞在を編集",
+            title: t("screenTitle.editStay"),
             presentation: "modal",
           }}
         />
@@ -34,7 +37,7 @@ function AppContent() {
           name="share"
           options={{
             headerShown: true,
-            title: "共有",
+            title: t("screenTitle.share"),
             presentation: "modal",
           }}
         />
@@ -42,7 +45,7 @@ function AppContent() {
           name="export"
           options={{
             headerShown: true,
-            title: "エクスポート",
+            title: t("screenTitle.export"),
             presentation: "modal",
           }}
         />

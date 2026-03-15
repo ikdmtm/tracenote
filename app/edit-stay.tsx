@@ -3,6 +3,7 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Image,
@@ -16,8 +17,8 @@ import {
 
 import type { Stay, StayPhoto } from "@/core/domain/models";
 import { useTheme } from "@/features/theme/ThemeContext";
-import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { type Activity } from "@/core/engine/activityInference";
+import type { PlaceCategory } from "@/core/places/categories";
 import { getStayById, updateStay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId, insertStayPhoto, deleteStayPhoto } from "@/core/storage/stayPhotoRepo";
 import { enrichStay } from "@/core/engine/enrichService";
@@ -29,12 +30,12 @@ function formatTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function durationLabel(startTs: number, endTs: number): string {
+function durationLabel(startTs: number, endTs: number, t: (key: string, opts?: Record<string, number>) => string): string {
   const mins = Math.round((endTs - startTs) / 60_000);
-  if (mins < 60) return `${mins}分`;
+  if (mins < 60) return t("format.minutes", { m: mins });
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
+  return m > 0 ? t("format.hoursMinutes", { h, m }) : t("format.hours", { h });
 }
 
 function parsePlaceJson(json: string | null): {
@@ -68,7 +69,8 @@ const ACTIVITY_OPTIONS: Activity[] = [
 ];
 
 export default function EditStayScreen() {
-  const { theme: t } = useTheme();
+  const { t } = useTranslation();
+  const { theme: themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
@@ -76,24 +78,27 @@ export default function EditStayScreen() {
   const [stay, setStay] = useState<Stay | null>(null);
   const [photos, setPhotos] = useState<StayPhoto[]>([]);
   const [editName, setEditName] = useState("");
+  const [memo, setMemo] = useState("");
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [saving, setSaving] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [reMatching, setReMatching] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     const s = await getStayById(db, Number(id));
     if (!s) {
-      Alert.alert("エラー", "この滞在が見つかりません");
+      Alert.alert(t("editStay.error"), t("editStay.notFound"));
       router.back();
       return;
     }
     setStay(s);
     setEditName(s.user_place_name ?? "");
+    setMemo(s.memo ?? "");
     setSelectedActivity((s.activity as Activity) ?? null);
     const p = await getPhotosByStayId(db, s.id);
     setPhotos(p);
-  }, [db, id, router]);
+  }, [db, id, router, t]);
 
   useEffect(() => {
     load();
@@ -106,15 +111,16 @@ export default function EditStayScreen() {
       await updateStay(db, stay.id, {
         user_place_name: editName.trim() || null,
         activity: selectedActivity,
+        memo: memo.trim() || null,
         needs_review: false,
       });
       router.back();
     } catch (e) {
-      Alert.alert("エラー", "保存に失敗しました");
+      Alert.alert(t("editStay.error"), t("editStay.saveFailed"));
     } finally {
       setSaving(false);
     }
-  }, [db, stay, editName, selectedActivity, router]);
+  }, [db, stay, editName, memo, selectedActivity, router, t]);
 
   const handleReEnrich = useCallback(async () => {
     if (!stay) return;
@@ -123,11 +129,11 @@ export default function EditStayScreen() {
       await enrichStay(db, stay);
       await load();
     } catch (e) {
-      Alert.alert("エラー", "再推定に失敗しました");
+      Alert.alert(t("editStay.error"), t("editStay.reEnrichFailed"));
     } finally {
       setEnriching(false);
     }
-  }, [db, stay, load]);
+  }, [db, stay, load, t]);
 
   const handleRemovePhoto = useCallback(async (photoId: number) => {
     await deleteStayPhoto(db, photoId);
@@ -136,6 +142,7 @@ export default function EditStayScreen() {
 
   const handleReMatchPhotos = useCallback(async () => {
     if (!stay) return;
+    setReMatching(true);
     try {
       const exclScreenshots = (await getSetting(db, "exclude_screenshots")) !== "false";
       const matched = await matchPhotosForStay(stay, { excludeScreenshots: exclScreenshots });
@@ -150,20 +157,22 @@ export default function EditStayScreen() {
       if (added > 0) {
         const p = await getPhotosByStayId(db, stay.id);
         setPhotos(p);
-        Alert.alert("完了", `${added}枚の写真を追加しました`);
+        Alert.alert(t("editStay.done"), t("editStay.photosAdded", { count: added }));
       } else {
-        Alert.alert("結果", "新しい写真は見つかりませんでした");
+        Alert.alert(t("editStay.result"), t("editStay.noNewPhotos"));
       }
     } catch (e) {
-      Alert.alert("エラー", "写真の再マッチングに失敗しました");
+      Alert.alert(t("editStay.error"), t("editStay.reMatchFailed"));
+    } finally {
+      setReMatching(false);
     }
-  }, [db, stay, photos]);
+  }, [db, stay, photos, t]);
 
   const handleAddFromLibrary = useCallback(async () => {
     if (!stay) return;
     const { status } = await MediaLibrary.getPermissionsAsync();
     if (status !== MediaLibrary.PermissionStatus.GRANTED) {
-      Alert.alert("写真アクセスが必要", "設定から写真へのアクセスを許可してください。");
+      Alert.alert(t("editStay.photoAccessRequired"), t("editStay.photoAccessRequiredMsg"));
       return;
     }
     // Fetch recent photos and let user see what's available
@@ -173,17 +182,17 @@ export default function EditStayScreen() {
       first: 50,
     });
     if (recent.assets.length === 0) {
-      Alert.alert("写真なし", "カメラロールに写真がありません");
+      Alert.alert(t("editStay.noPhotosTitle"), t("editStay.noPhotosInLibrary"));
       return;
     }
     // For now, auto-match is the primary flow. Manual add is via re-match.
     await handleReMatchPhotos();
-  }, [stay, handleReMatchPhotos]);
+  }, [stay, handleReMatchPhotos, t]);
 
   if (!stay) {
     return (
-      <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: themeColors.bg }]}>
+        <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>{t("editStay.loading")}</Text>
       </View>
     );
   }
@@ -192,108 +201,125 @@ export default function EditStayScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "滞在の編集", headerBackTitle: "戻る" }} />
-      <ScrollView style={[styles.container, { backgroundColor: t.bg }]} contentContainerStyle={styles.scrollContent}>
+      <Stack.Screen options={{ title: t("editStay.title"), headerBackTitle: t("editStay.back") }} />
+      <ScrollView style={[styles.container, { backgroundColor: themeColors.bg }]} contentContainerStyle={styles.scrollContent}>
         {/* Time and Duration */}
-        <View style={[styles.section, { backgroundColor: t.surface }]}>
-          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>時間</Text>
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.time")}</Text>
           <View style={styles.timeRow}>
-            <Ionicons name="time-outline" size={20} color={t.primary} />
-            <Text style={[styles.timeValue, { color: t.text }]}>
+            <Ionicons name="time-outline" size={20} color={themeColors.primary} />
+            <Text style={[styles.timeValue, { color: themeColors.text }]}>
               {formatTime(stay.start_ts)} 〜 {formatTime(stay.end_ts)}
             </Text>
-            <Text style={[styles.durationValue, { color: t.textMuted }]}>
-              ({durationLabel(stay.start_ts, stay.end_ts)})
+            <Text style={[styles.durationValue, { color: themeColors.textMuted }]}>
+              ({durationLabel(stay.start_ts, stay.end_ts, t)})
             </Text>
           </View>
         </View>
 
         {/* Place Info */}
-        <View style={[styles.section, { backgroundColor: t.surface }]}>
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>場所情報</Text>
-            <Pressable onPress={handleReEnrich} disabled={enriching} style={[styles.reEnrichBtn, { backgroundColor: t.primaryLight }]}>
-              <Ionicons name="refresh" size={14} color={t.primary} />
-              <Text style={[styles.reEnrichText, { color: t.primary }]}>
-                {enriching ? "推定中..." : "再推定"}
+            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.placeInfo")}</Text>
+            <Pressable onPress={handleReEnrich} disabled={enriching} style={[styles.reEnrichBtn, { backgroundColor: themeColors.primaryLight }]}>
+              <Ionicons name="refresh" size={14} color={themeColors.primary} />
+              <Text style={[styles.reEnrichText, { color: themeColors.primary }]}>
+                {enriching ? t("editStay.estimating") : t("editStay.reEstimate")}
               </Text>
             </Pressable>
           </View>
           {place.name && (
-            <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
-              <Text style={[styles.placeLabel, { color: t.textSecondary }]}>検出場所</Text>
-              <Text style={[styles.placeValue, { color: t.text }]}>{place.name}</Text>
+            <View style={[styles.placeRow, { borderBottomColor: themeColors.divider }]}>
+              <Text style={[styles.placeLabel, { color: themeColors.textSecondary }]}>{t("editStay.detectedPlace")}</Text>
+              <Text style={[styles.placeValue, { color: themeColors.text }]}>{place.name}</Text>
             </View>
           )}
           {place.category && (
-            <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
-              <Text style={[styles.placeLabel, { color: t.textSecondary }]}>カテゴリ</Text>
-              <Text style={[styles.placeValue, { color: t.text }]}>
-                {CATEGORY_LABELS[place.category] ?? place.category}
+            <View style={[styles.placeRow, { borderBottomColor: themeColors.divider }]}>
+              <Text style={[styles.placeLabel, { color: themeColors.textSecondary }]}>{t("editStay.category")}</Text>
+              <Text style={[styles.placeValue, { color: themeColors.text }]}>
+                {t(`category.${place.category}`) || place.category}
               </Text>
             </View>
           )}
-          <View style={[styles.placeRow, { borderBottomColor: t.divider }]}>
-            <Text style={[styles.placeLabel, { color: t.textSecondary }]}>座標</Text>
-            <Text style={[styles.coordValue, { color: t.textMuted }]}>
+          <View style={[styles.placeRow, { borderBottomColor: themeColors.divider }]}>
+            <Text style={[styles.placeLabel, { color: themeColors.textSecondary }]}>{t("editStay.coordinates")}</Text>
+            <Text style={[styles.coordValue, { color: themeColors.textMuted }]}>
               {stay.lat.toFixed(5)}, {stay.lng.toFixed(5)}
             </Text>
           </View>
           {place.count > 1 && (
-            <Text style={[styles.placeNote, { color: t.textMuted }]}>
-              周辺に {place.count} 件の施設を検出
+            <Text style={[styles.placeNote, { color: themeColors.textMuted }]}>
+              {t("editStay.nearbyPlaces", { count: place.count })}
             </Text>
           )}
         </View>
 
         {/* Edit Place Name */}
-        <View style={[styles.section, { backgroundColor: t.surface }]}>
-          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>場所名（カスタム）</Text>
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.placeName")}</Text>
           <TextInput
-            style={[styles.input, { borderColor: t.surfaceBorder, color: t.text, backgroundColor: t.bg }]}
-            placeholder="例: 自宅、会社、〇〇カフェ..."
+            style={[styles.input, { borderColor: themeColors.surfaceBorder, color: themeColors.text, backgroundColor: themeColors.bg }]}
+            placeholder={t("editStay.placeNamePlaceholder")}
             value={editName}
             onChangeText={setEditName}
-            placeholderTextColor={t.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             returnKeyType="done"
           />
         </View>
 
         {/* Activity Selection */}
-        <View style={[styles.section, { backgroundColor: t.surface }]}>
-          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>行動ラベル</Text>
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.activityLabel")}</Text>
           <View style={styles.activityGrid}>
             {ACTIVITY_OPTIONS.map((act) => (
               <Pressable
                 key={act}
                 style={[
                   styles.activityBtn,
-                  { backgroundColor: t.divider, borderColor: "transparent" },
-                  selectedActivity === act && { backgroundColor: t.primaryLight, borderColor: t.primary },
+                  { backgroundColor: themeColors.divider, borderColor: "transparent" },
+                  selectedActivity === act && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
                 ]}
                 onPress={() => setSelectedActivity(act)}
               >
                 <Text
                   style={[
                     styles.activityBtnText,
-                    { color: t.textSecondary },
-                    selectedActivity === act && { color: t.primary },
+                    { color: themeColors.textSecondary },
+                    selectedActivity === act && { color: themeColors.primary },
                   ]}
                 >
-                  {ACTIVITY_LABELS[act]}
+                  {t(`activity.${act}`)}
                 </Text>
               </Pressable>
             ))}
           </View>
         </View>
 
+        {/* Memo */}
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.memo")}</Text>
+          <TextInput
+            style={[styles.input, styles.memoInput, { borderColor: themeColors.surfaceBorder, color: themeColors.text, backgroundColor: themeColors.bg }]}
+            placeholder={t("editStay.memoPlaceholder")}
+            value={memo}
+            onChangeText={setMemo}
+            placeholderTextColor={themeColors.textMuted}
+            maxLength={200}
+            multiline
+            returnKeyType="done"
+          />
+        </View>
+
         {/* Photos */}
-        <View style={[styles.section, { backgroundColor: t.surface }]}>
+        <View style={[styles.section, { backgroundColor: themeColors.surface }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>写真</Text>
-            <Pressable onPress={handleReMatchPhotos} style={[styles.reEnrichBtn, { backgroundColor: t.primaryLight }]}>
-              <Ionicons name="images-outline" size={14} color={t.primary} />
-              <Text style={[styles.reEnrichText, { color: t.primary }]}>再マッチ</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("editStay.photos")}</Text>
+            <Pressable onPress={handleReMatchPhotos} disabled={reMatching} style={[styles.reEnrichBtn, { backgroundColor: themeColors.primaryLight }]}>
+              <Ionicons name="images-outline" size={14} color={themeColors.primary} />
+              <Text style={[styles.reEnrichText, { color: themeColors.primary }]}>
+                {reMatching ? t("editStay.reMatching") : t("editStay.reMatch")}
+              </Text>
             </Pressable>
           </View>
           {photos.length > 0 ? (
@@ -301,27 +327,27 @@ export default function EditStayScreen() {
               {photos.map((p) => (
                 <View key={p.id} style={styles.photoItem}>
                   {p.uri && !p.uri.startsWith("ph://") ? (
-                    <Image source={{ uri: p.uri }} style={[styles.photoImage, { backgroundColor: t.divider }]} />
+                    <Image source={{ uri: p.uri }} style={[styles.photoImage, { backgroundColor: themeColors.divider }]} />
                   ) : (
-                    <View style={[styles.photoImage, { backgroundColor: t.divider, justifyContent: "center", alignItems: "center" }]}>
-                      <Ionicons name="image-outline" size={24} color={t.textMuted} />
+                    <View style={[styles.photoImage, { backgroundColor: themeColors.divider, justifyContent: "center", alignItems: "center" }]}>
+                      <Ionicons name="image-outline" size={24} color={themeColors.textMuted} />
                     </View>
                   )}
                   <Pressable
-                    style={[styles.photoRemoveBtn, { backgroundColor: t.surface }]}
+                    style={[styles.photoRemoveBtn, { backgroundColor: themeColors.surface }]}
                     onPress={() => handleRemovePhoto(p.id)}
                   >
-                    <Ionicons name="close-circle" size={20} color={t.danger} />
+                    <Ionicons name="close-circle" size={20} color={themeColors.danger} />
                   </Pressable>
-                  <Text style={[styles.photoTime, { color: t.textMuted }]}>
+                  <Text style={[styles.photoTime, { color: themeColors.textMuted }]}>
                     {formatTime(p.taken_at)}
                   </Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={[styles.photoEmpty, { color: t.textMuted }]}>
-              この滞在に紐づく写真はありません
+            <Text style={[styles.photoEmpty, { color: themeColors.textMuted }]}>
+              {t("editStay.noPhotosLinked")}
             </Text>
           )}
         </View>
@@ -331,19 +357,19 @@ export default function EditStayScreen() {
           <View style={styles.reviewBanner}>
             <Ionicons name="alert-circle" size={18} color="#d97706" />
             <Text style={styles.reviewBannerText}>
-              この滞在は自動推定の確信度が低いため確認をお願いします
+              {t("editStay.needsReviewBanner")}
             </Text>
           </View>
         )}
 
         {/* Save Button */}
         <Pressable
-          style={[styles.saveBtn, { backgroundColor: t.primary }, saving && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, { backgroundColor: themeColors.primary }, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={[styles.saveBtnText, { color: t.textOnPrimary }]}>
-            {saving ? "保存中..." : "保存する"}
+          <Text style={[styles.saveBtnText, { color: themeColors.textOnPrimary }]}>
+            {saving ? t("editStay.saving") : t("editStay.save")}
           </Text>
         </Pressable>
       </ScrollView>
@@ -439,6 +465,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
+  },
+  memoInput: {
+    minHeight: 80,
+    textAlignVertical: "top",
   },
   activityGrid: {
     flexDirection: "row",

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FlatList,
   Pressable,
@@ -27,7 +28,6 @@ import { StayCard } from "@/features/stays/StayCard";
 import {
   estimateMovements,
   MOVEMENT_ICONS,
-  MOVEMENT_LABELS,
   type Movement,
   type MovementMode,
 } from "@/core/engine/movementEstimator";
@@ -38,11 +38,12 @@ import { useTheme } from "@/features/theme/ThemeContext";
 import type { ThemeColors } from "@/features/theme/colors";
 
 function StatusBadge({ status }: { status: PermissionState }) {
+  const { t } = useTranslation();
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
-    always: { label: "常に許可", color: "#16a34a", bg: "#dcfce7" },
-    foreground: { label: "使用中のみ", color: "#d97706", bg: "#fef3c7" },
-    denied: { label: "拒否", color: "#dc2626", bg: "#fee2e2" },
-    undetermined: { label: "未設定", color: "#64748b", bg: "#f1f5f9" },
+    always: { label: t("permission.always"), color: "#16a34a", bg: "#dcfce7" },
+    foreground: { label: t("permission.whenInUse"), color: "#d97706", bg: "#fef3c7" },
+    denied: { label: t("permission.denied"), color: "#dc2626", bg: "#fee2e2" },
+    undetermined: { label: t("permission.undetermined"), color: "#64748b", bg: "#f1f5f9" },
   };
   const c = config[status];
   return (
@@ -57,8 +58,7 @@ function dayKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDisplayDate(d: Date): string {
-  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+function formatDisplayDate(d: Date, weekdays: string[]): string {
   return `${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`;
 }
 
@@ -96,7 +96,9 @@ type ListItem =
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const { t: tKey } = useTranslation();
   const { theme: t } = useTheme();
+  const weekdays = tKey("calendar.weekdays", { returnObjects: true }) as string[];
   const { status, loading, requestAlways, openSettings } = useLocationPermission();
   const [eventCount, setEventCount] = useState(0);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -252,7 +254,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <Text style={[styles.loadingText, { color: t.textMuted }]}>読み込み中...</Text>
+        <Text style={[styles.loadingText, { color: t.textMuted }]}>{tKey("home.loading")}</Text>
       </View>
     );
   }
@@ -262,7 +264,7 @@ export default function HomeScreen() {
       const m = item.movement;
       const effectiveMode = m.mode as MovementMode;
       const icon = MOVEMENT_ICONS[effectiveMode];
-      const label = MOVEMENT_LABELS[effectiveMode];
+      const label = tKey(`movement.${effectiveMode}`);
       const isEdited = !!m.userMode;
       return (
         <Pressable style={styles.movementRow} onPress={() => setEditingMovement(m)}>
@@ -304,8 +306,8 @@ export default function HomeScreen() {
           <Ionicons name="chevron-back" size={20} color={t.primary} />
         </Pressable>
         <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
-          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate)}</Text>
-          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>今日</Text>}
+          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate, weekdays)}</Text>
+          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>{tKey("home.today")}</Text>}
         </Pressable>
         <Pressable
           onPress={goToNextDay}
@@ -334,7 +336,7 @@ export default function HomeScreen() {
           <Pressable style={[styles.permButton, { backgroundColor: t.primary }]} onPress={handlePermissionPress}>
             <Ionicons name="location" size={18} color={t.textOnPrimary} />
             <Text style={[styles.permButtonText, { color: t.textOnPrimary }]}>
-              {status === "denied" ? "設定で許可する" : "位置情報を常に許可する"}
+              {status === "denied" ? tKey("home.permOpenSettings") : tKey("home.permAlways")}
             </Text>
           </Pressable>
         </View>
@@ -344,17 +346,17 @@ export default function HomeScreen() {
         <View style={[styles.statsRow, { backgroundColor: t.surface }]}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: t.text }]}>{stays.length}</Text>
-            <Text style={[styles.statLabel, { color: t.textMuted }]}>滞在</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>{tKey("home.stays")}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: t.surfaceBorder }]} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: t.text }]}>{formatDistance(totalDistanceM)}</Text>
-            <Text style={[styles.statLabel, { color: t.textMuted }]}>移動距離</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>{tKey("home.distance")}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: t.surfaceBorder }]} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: t.text }]}>{totalPhotos}</Text>
-            <Text style={[styles.statLabel, { color: t.textMuted }]}>写真</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>{tKey("home.photos")}</Text>
           </View>
         </View>
       )}
@@ -374,7 +376,7 @@ export default function HomeScreen() {
               onPress={() => router.push({ pathname: "/share", params: { dayKey: dayKeyFromDate(currentDate) } })}
             >
               <Ionicons name="share-outline" size={16} color={t.primary} />
-              <Text style={[styles.shareBtnText, { color: t.primary }]}>シェアする</Text>
+              <Text style={[styles.shareBtnText, { color: t.primary }]}>{tKey("home.share")}</Text>
             </Pressable>
           }
         />
@@ -382,18 +384,16 @@ export default function HomeScreen() {
         <View style={styles.placeholder}>
           {isTodayView && status === "always" ? (
             <Text style={[styles.placeholderText, { color: t.textMuted }]}>
-              バックグラウンドで位置情報を収集中...{"\n"}
-              滞在が検出されるとここに表示されます
+              {tKey("home.emptyCollecting")}
             </Text>
           ) : isTodayView ? (
             <Text style={[styles.placeholderText, { color: t.textMuted }]}>
-              位置情報を「常に許可」すると{"\n"}
-              行動ログの自動記録が始まります
+              {tKey("home.emptyNeedPerm")}
             </Text>
           ) : (
             <>
               <Ionicons name="calendar-outline" size={40} color={t.textMuted} />
-              <Text style={[styles.placeholderText, { color: t.textMuted }]}>この日の滞在データはありません</Text>
+              <Text style={[styles.placeholderText, { color: t.textMuted }]}>{tKey("home.emptyNoData")}</Text>
             </>
           )}
         </View>

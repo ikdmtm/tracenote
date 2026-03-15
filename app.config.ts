@@ -7,6 +7,10 @@ const config: ExpoConfig = {
   version: "0.1.0",
   orientation: "portrait",
   newArchEnabled: true,
+  locales: {
+    ja: "./locales/ja.json",
+    en: "./locales/en.json",
+  },
   android: {
     package: "com.tracenote.app",
   },
@@ -16,26 +20,27 @@ const config: ExpoConfig = {
     infoPlist: {
       UIBackgroundModes: ["location"],
       NSLocationWhenInUseUsageDescription:
-        "行動ログを自動で記録するため、位置情報を使用します。",
+        "Your location is used to automatically record your activity log.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。",
+        "Your location is always used to automatically record your activity log, even when the app is not open.",
       NSLocationAlwaysUsageDescription:
-        "行動ログを自動で記録するため、常に位置情報を使用します。",
+        "Your location is always used to automatically record your activity log.",
       NSPhotoLibraryUsageDescription:
-        "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。",
+        "Your photo library is accessed to automatically link photos taken during stays.",
     },
   },
   plugins: [
     "expo-router",
     "expo-sqlite",
     "expo-font",
+    "expo-localization",
     [
       "expo-location",
-      { locationAlwaysAndWhenInUsePermission: "アプリを開いていない時も行動ログを自動記録するため、常に位置情報を使用します。" },
+      { locationAlwaysAndWhenInUsePermission: "Your location is always used to automatically record your activity log, even when the app is not open." },
     ],
     [
       "expo-media-library",
-      { photosPermission: "滞在中に撮った写真を日記に自動で紐づけるため、写真ライブラリにアクセスします。" },
+      { photosPermission: "Your photo library is accessed to automatically link photos taken during stays." },
     ],
     [
       "react-native-google-mobile-ads",

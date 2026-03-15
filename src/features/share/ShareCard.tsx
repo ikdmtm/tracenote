@@ -2,11 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 
+import i18n from "@/i18n";
 import type { Stay, StayPhoto } from "@/core/domain/models";
-import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
+import { getActivityLabel } from "@/core/engine/activityInference";
 import type { HomeLocation } from "@/core/engine/homeDetector";
 import { isHomeStay } from "@/core/engine/homeDetector";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { getCategoryLabel, type PlaceCategory } from "@/core/places/categories";
 import type { ThemeColors } from "@/features/theme/colors";
 
 /* ─── Layout ─── */
@@ -30,7 +31,7 @@ function formatDateEn(d: Date): string {
 }
 
 function formatDateJp(d: Date): string {
-  const wd = ["日", "月", "火", "水", "木", "金", "土"];
+  const wd = i18n.t("calendar.weekdays", { returnObjects: true }) as string[];
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${wd[d.getDay()]}）`;
 }
 
@@ -52,20 +53,20 @@ function fmtDist(meters: number): string {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-/** Resolve place name for ShareCard. Home stays always show "自宅". */
+/** Resolve place name for ShareCard. Home stays always show translated "Home". */
 function sharePlaceName(stay: Stay, home: HomeLocation | null): string {
-  if (isHomeStay(stay, home)) return "自宅";
+  if (isHomeStay(stay, home)) return i18n.t("shareCard.home");
   if (stay.user_place_name) return stay.user_place_name;
   if (stay.place_json) {
     try {
       const p = JSON.parse(stay.place_json);
       if (p.top?.name) return p.top.name;
       if (p.top?.category && p.top.category !== "other")
-        return CATEGORY_LABELS[p.top.category as PlaceCategory] ?? p.top.category;
+        return getCategoryLabel(p.top.category) ?? p.top.category;
     } catch {}
   }
-  if (stay.activity) return ACTIVITY_LABELS[stay.activity as Activity] ?? "滞在";
-  return "滞在";
+  if (stay.activity) return getActivityLabel(stay.activity);
+  return i18n.t("shareCard.stays");
 }
 
 const ACT_ICON: Record<string, string> = {
@@ -174,7 +175,7 @@ export const ShareCardPage = React.forwardRef<View, ShareCardPageProps>(
           <View style={s.statsBar}>
             <View style={s.statBox}>
               <Text style={s.statNum}>{totalStays}</Text>
-              <Text style={s.statUnit}>滞在</Text>
+              <Text style={s.statUnit}>{i18n.t("shareCard.stays")}</Text>
             </View>
             <View style={s.statDiv} />
             <View style={s.statBox}>

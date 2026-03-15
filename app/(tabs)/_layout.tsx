@@ -1,11 +1,13 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { Text, StyleSheet } from "react-native";
 
 import { useTheme } from "@/features/theme/ThemeContext";
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Tabs
@@ -15,7 +17,7 @@ export default function TabLayout() {
         tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.surfaceBorder },
         headerStyle: { backgroundColor: theme.headerBg },
         headerTitle: () => (
-          <Text style={[styles.headerTitle, { color: theme.headerText }]}>TraceNote</Text>
+          <Text style={[styles.headerTitle, { color: theme.headerText }]}>{t("appName")}</Text>
         ),
         headerTitleAlign: "left",
         headerShadowVisible: false,
@@ -24,7 +26,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarLabel: "ホーム",
+          tabBarLabel: t("tabs.home"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
@@ -33,7 +35,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="timeline"
         options={{
-          tabBarLabel: "タイムライン",
+          tabBarLabel: t("tabs.timeline"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
@@ -42,7 +44,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          tabBarLabel: "設定",
+          tabBarLabel: t("tabs.settings"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),

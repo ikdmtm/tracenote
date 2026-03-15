@@ -2,6 +2,8 @@ import * as MediaLibrary from "expo-media-library";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Linking } from "react-native";
 
+import i18n from "@/i18n";
+
 export type PhotoPermissionState = "undetermined" | "granted" | "limited" | "denied";
 
 function mapStatus(status: MediaLibrary.PermissionStatus): PhotoPermissionState {
@@ -56,11 +58,11 @@ export function usePhotoPermission() {
 
   const openSettings = useCallback(() => {
     Alert.alert(
-      "写真アクセスが必要です",
-      "設定アプリで写真へのアクセスを許可してください。",
+      i18n.t("permAlert.photoTitle"),
+      i18n.t("permAlert.photoMsg"),
       [
-        { text: "キャンセル", style: "cancel" },
-        { text: "設定を開く", onPress: () => Linking.openSettings() },
+        { text: i18n.t("permAlert.cancel"), style: "cancel" },
+        { text: i18n.t("permAlert.openSettings"), onPress: () => Linking.openSettings() },
       ],
     );
   }, []);

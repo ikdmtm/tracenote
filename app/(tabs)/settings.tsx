@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Pressable,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 
 import { getSetting, setSetting } from "@/core/storage/settingsRepo";
+import { setAppLanguage } from "@/i18n";
 import { getHomeLocation, refreshHomeLocation, type HomeLocation } from "@/core/engine/homeDetector";
 import { seedTestDay, clearAllData } from "@/core/debug/seedTestData";
 import {
@@ -44,11 +46,15 @@ function cycleMinute(current: string, delta: number): string {
   return formatTimeStr(h, next);
 }
 
+type LangValue = "auto" | "ja" | "en";
+
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
-  const { theme: t, themeId, setThemeId } = useTheme();
+  const { t } = useTranslation();
+  const { theme: themeColors, themeId, setThemeId } = useTheme();
 
+  const [lang, setLang] = useState<LangValue>("auto");
   const [dayEndTime, setDayEndTime] = useState<string>("03:00");
   const [excludeScreenshots, setExcludeScreenshots] = useState(true);
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
@@ -57,6 +63,10 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     (async () => {
+      const l = (await getSetting(db, "language")) as LangValue | null;
+      const langVal = l === "ja" || l === "en" ? l : "auto";
+      setLang(langVal);
+      setAppLanguage(langVal);
       const de = await getSetting(db, "day_end_time");
       if (de) setDayEndTime(de);
       const es = await getSetting(db, "exclude_screenshots");
@@ -65,6 +75,15 @@ export default function SettingsScreen() {
       setHomeLocation(h);
     })();
   }, [db]);
+
+  const handleLangChange = useCallback(
+    async (next: LangValue) => {
+      setLang(next);
+      await setSetting(db, "language", next);
+      setAppLanguage(next);
+    },
+    [db],
+  );
 
   const updateDayEndTime = useCallback(
     async (next: string) => {
@@ -76,13 +95,34 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: t.bg }]}
+      style={[styles.container, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={styles.content}
     >
+      {/* Language Selector */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.language")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
+          {(["auto", "ja", "en"] as const).map((opt, idx) => (
+            <View key={opt}>
+              {idx > 0 && <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />}
+              <Pressable
+                style={styles.menuRow}
+                onPress={() => handleLangChange(opt)}
+              >
+                <Text style={[styles.menuLabel, { color: themeColors.text }]}>
+                  {opt === "auto" ? t("settings.langAuto") : opt === "ja" ? t("settings.langJa") : t("settings.langEn")}
+                </Text>
+                {lang === opt && <Ionicons name="checkmark-circle" size={20} color={themeColors.primary} />}
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      </View>
+
       {/* Theme Selector */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>テーマ</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.theme")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <View style={styles.themeRow}>
             {THEME_LIST.map((th) => {
               const selected = themeId === th.id;
@@ -91,7 +131,7 @@ export default function SettingsScreen() {
                   key={th.id}
                   style={[
                     styles.themeOption,
-                    selected && { borderColor: t.primary },
+                    selected && { borderColor: themeColors.primary },
                   ]}
                   onPress={() => setThemeId(th.id as ThemeId)}
                 >
@@ -102,11 +142,11 @@ export default function SettingsScreen() {
                   </View>
                   <Text style={[
                     styles.themeName,
-                    { color: selected ? t.primary : t.textSecondary },
+                    { color: selected ? themeColors.primary : themeColors.textSecondary },
                     selected && { fontWeight: "700" },
-                  ]}>{th.name}</Text>
+                  ]}>{t(`themeName.${th.id}`)}</Text>
                   {selected && (
-                    <Ionicons name="checkmark-circle" size={16} color={t.primary} />
+                    <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
                   )}
                 </Pressable>
               );
@@ -117,31 +157,31 @@ export default function SettingsScreen() {
 
       {/* Time Settings */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>時刻設定</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.timeSettings")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: t.text }]}>活動終了時刻</Text>
-              <Text style={[styles.settingDescription, { color: t.textMuted }]}>1日の区切り時刻</Text>
+              <Text style={[styles.settingLabel, { color: themeColors.text }]}>{t("settings.activityEnd")}</Text>
+              <Text style={[styles.settingDescription, { color: themeColors.textMuted }]}>{t("settings.dayCutoff")}</Text>
             </View>
             <View style={styles.timePickerRow}>
               <View style={styles.timeUnit}>
                 <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleHour(dayEndTime, 1))}>
-                  <Ionicons name="chevron-up" size={18} color={t.textSecondary} />
+                  <Ionicons name="chevron-up" size={18} color={themeColors.textSecondary} />
                 </Pressable>
-                <Text style={[styles.timeText, { color: t.text }]}>{String(parseTime(dayEndTime).h).padStart(2, "0")}</Text>
+                <Text style={[styles.timeText, { color: themeColors.text }]}>{String(parseTime(dayEndTime).h).padStart(2, "0")}</Text>
                 <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleHour(dayEndTime, -1))}>
-                  <Ionicons name="chevron-down" size={18} color={t.textSecondary} />
+                  <Ionicons name="chevron-down" size={18} color={themeColors.textSecondary} />
                 </Pressable>
               </View>
-              <Text style={[styles.timeSeparator, { color: t.text }]}>:</Text>
+              <Text style={[styles.timeSeparator, { color: themeColors.text }]}>:</Text>
               <View style={styles.timeUnit}>
                 <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleMinute(dayEndTime, 15))}>
-                  <Ionicons name="chevron-up" size={18} color={t.textSecondary} />
+                  <Ionicons name="chevron-up" size={18} color={themeColors.textSecondary} />
                 </Pressable>
-                <Text style={[styles.timeText, { color: t.text }]}>{String(parseTime(dayEndTime).m).padStart(2, "0")}</Text>
+                <Text style={[styles.timeText, { color: themeColors.text }]}>{String(parseTime(dayEndTime).m).padStart(2, "0")}</Text>
                 <Pressable style={styles.arrowButton} onPress={() => updateDayEndTime(cycleMinute(dayEndTime, -15))}>
-                  <Ionicons name="chevron-down" size={18} color={t.textSecondary} />
+                  <Ionicons name="chevron-down" size={18} color={themeColors.textSecondary} />
                 </Pressable>
               </View>
             </View>
@@ -151,39 +191,39 @@ export default function SettingsScreen() {
 
       {/* Permissions */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>パーミッション</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.permissions")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <View style={styles.menuRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.menuLabel, { color: t.text }]}>写真アクセス</Text>
-              <Text style={[styles.settingDescription, { color: t.textMuted }]}>
-                滞在中の写真を自動で紐づけます
+              <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.photoAccess")}</Text>
+              <Text style={[styles.settingDescription, { color: themeColors.textMuted }]}>
+                {t("settings.photoAccessDesc")}
               </Text>
             </View>
             {photoStatus === "granted" ? (
               <View style={[styles.permBadge, { backgroundColor: "#dcfce7" }]}>
-                <Text style={[styles.permBadgeText, { color: t.success }]}>許可済み</Text>
+                <Text style={[styles.permBadgeText, { color: themeColors.success }]}>{t("settings.permGranted")}</Text>
               </View>
             ) : photoStatus === "limited" ? (
               <Pressable style={[styles.permBadge, { backgroundColor: "#fef3c7" }]} onPress={openPhotoSettings}>
-                <Text style={[styles.permBadgeText, { color: t.warning }]}>一部許可</Text>
+                <Text style={[styles.permBadgeText, { color: themeColors.warning }]}>{t("settings.permPartial")}</Text>
               </Pressable>
             ) : photoStatus === "denied" ? (
               <Pressable style={[styles.permBadge, { backgroundColor: "#fee2e2" }]} onPress={openPhotoSettings}>
-                <Text style={[styles.permBadgeText, { color: t.danger }]}>拒否</Text>
+                <Text style={[styles.permBadgeText, { color: themeColors.danger }]}>{t("settings.permDenied")}</Text>
               </Pressable>
             ) : (
-              <Pressable style={[styles.permBadge, { backgroundColor: t.primaryLight }]} onPress={requestPhotoPermission}>
-                <Text style={[styles.permBadgeText, { color: t.primary }]}>許可する</Text>
+              <Pressable style={[styles.permBadge, { backgroundColor: themeColors.primaryLight }]} onPress={requestPhotoPermission}>
+                <Text style={[styles.permBadgeText, { color: themeColors.primary }]}>{t("settings.permGrant")}</Text>
               </Pressable>
             )}
           </View>
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <View style={styles.menuRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.menuLabel, { color: t.text }]}>スクリーンショットを除外</Text>
-              <Text style={[styles.settingDescription, { color: t.textMuted }]}>
-                写真マッチングからスクショを除外します
+              <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.excludeScreenshots")}</Text>
+              <Text style={[styles.settingDescription, { color: themeColors.textMuted }]}>
+                {t("settings.excludeScreenshotsDesc")}
               </Text>
             </View>
             <Switch
@@ -192,8 +232,8 @@ export default function SettingsScreen() {
                 setExcludeScreenshots(val);
                 await setSetting(db, "exclude_screenshots", val ? "true" : "false");
               }}
-              trackColor={{ false: t.surfaceBorder, true: t.switchTrack }}
-              thumbColor={excludeScreenshots ? t.primary : "#f4f4f5"}
+              trackColor={{ false: themeColors.surfaceBorder, true: themeColors.switchTrack }}
+              thumbColor={excludeScreenshots ? themeColors.primary : "#f4f4f5"}
             />
           </View>
         </View>
@@ -201,49 +241,49 @@ export default function SettingsScreen() {
 
       {/* Data */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>データ</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.data")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <Pressable style={styles.menuRow} onPress={() => router.push("/export")}>
-            <Text style={[styles.menuLabel, { color: t.text }]}>エクスポート</Text>
-            <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.export")}</Text>
+            <Ionicons name="chevron-forward" size={20} color={themeColors.textMuted} />
           </Pressable>
         </View>
       </View>
 
       {/* Home Detection */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>ホーム判定</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.homeDetection")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <View style={styles.menuRow}>
-            <Text style={[styles.menuLabel, { color: t.text }]}>ステータス</Text>
-            <Text style={[styles.menuValue, { color: t.textMuted }]}>
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.homeStatus")}</Text>
+            <Text style={[styles.menuValue, { color: themeColors.textMuted }]}>
               {homeLocation
-                ? `判定済み (${homeLocation.lat.toFixed(3)}, ${homeLocation.lng.toFixed(3)})`
-                : "未判定（データ蓄積中）"}
+                ? t("settings.homeDetectedWithCoords", { lat: homeLocation.lat.toFixed(3), lng: homeLocation.lng.toFixed(3) })
+                : t("settings.homeNotDetectedAccumulating")}
             </Text>
           </View>
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               const h = await refreshHomeLocation(db);
               setHomeLocation(h);
               Alert.alert(
-                "ホーム判定",
-                h ? `自宅を更新しました（${h.count}泊分のデータ）` : "まだ十分なデータがありません（3泊以上必要）",
+                t("settings.homeDetection"),
+                h ? t("settings.homeReDetectSuccess", { count: h.count }) : t("settings.homeReDetectNotEnough"),
               );
             }}
           >
-            <Text style={[styles.menuLabel, { color: t.primary }]}>再判定する</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.primary }]}>{t("settings.homeReDetect")}</Text>
           </Pressable>
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={() =>
-              Alert.alert("ホーム判定をリセット", "蓄積したホーム判定データをリセットしますか？", [
-                { text: "キャンセル", style: "cancel" },
+              Alert.alert(t("settings.homeResetButton"), t("settings.homeResetConfirm"), [
+                { text: t("settings.cancel"), style: "cancel" },
                 {
-                  text: "リセット",
+                  text: t("settings.homeReset"),
                   style: "destructive",
                   onPress: async () => {
                     await setSetting(db, "home_location", "");
@@ -253,63 +293,63 @@ export default function SettingsScreen() {
               ])
             }
           >
-            <Text style={[styles.menuLabel, { color: t.danger }]}>ホーム判定をリセット</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.danger }]}>{t("settings.homeResetButton")}</Text>
           </Pressable>
         </View>
       </View>
 
       {/* Subscription */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>サブスクリプション</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.subscription")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <View style={styles.menuRow}>
-            <Text style={[styles.menuLabel, { color: t.text }]}>プラン</Text>
-            <View style={[styles.permBadge, { backgroundColor: isPro ? t.primaryLight : t.divider }]}>
-              <Text style={[styles.permBadgeText, { color: isPro ? t.primary : t.textSecondary }]}>
-                {isPro ? "Pro（広告なし）" : "Free（広告あり）"}
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.plan")}</Text>
+            <View style={[styles.permBadge, { backgroundColor: isPro ? themeColors.primaryLight : themeColors.divider }]}>
+              <Text style={[styles.permBadgeText, { color: isPro ? themeColors.primary : themeColors.textSecondary }]}>
+                {isPro ? t("settings.proWithAds") : t("settings.freeWithAds")}
               </Text>
             </View>
           </View>
           {!isPro && (
             <>
-              <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+              <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
               <Pressable
                 style={styles.menuRow}
                 onPress={async () => {
                   try {
                     const ok = await purchase();
                     Alert.alert(
-                      ok ? "ありがとうございます" : "購入",
-                      ok ? "Proプランにアップグレードしました" : "購入がキャンセルされたか、まだ設定されていません",
+                      ok ? t("settings.thanks") : t("settings.purchase"),
+                      ok ? t("settings.purchaseSuccess") : t("settings.purchaseCancelled"),
                     );
                   } catch (e) {
-                    Alert.alert("エラー", String(e));
+                    Alert.alert(t("settings.error"), String(e));
                   }
                 }}
               >
-                <Text style={[styles.menuLabel, { color: t.primary }]}>Proにアップグレード</Text>
+                <Text style={[styles.menuLabel, { color: themeColors.primary }]}>{t("settings.upgrade")}</Text>
               </Pressable>
             </>
           )}
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const ok = await restore();
-                Alert.alert("購入の復元", ok ? "Proプランを復元しました" : "復元可能な購入が見つかりませんでした");
+                Alert.alert(t("settings.restoreTitle"), ok ? t("settings.restoreSuccess") : t("settings.restoreNotFound"));
               } catch (e) {
-                Alert.alert("エラー", String(e));
+                Alert.alert(t("settings.error"), String(e));
               }
             }}
           >
-            <Text style={[styles.menuLabel, { color: t.text }]}>購入を復元</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.restore")}</Text>
           </Pressable>
           {__DEV__ && (
             <>
-              <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+              <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
               <View style={styles.menuRow}>
-                <Text style={[styles.menuLabel, { color: t.warning }]}>🛠 Dev: Pro切替</Text>
+                <Text style={[styles.menuLabel, { color: themeColors.warning }]}>🛠 {t("settings.devProToggle")}</Text>
                 <Switch value={isPro} onValueChange={toggleDevPro} />
               </View>
             </>
@@ -319,59 +359,67 @@ export default function SettingsScreen() {
 
       {/* Debug */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>デバッグ</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>{t("settings.debug")}</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.surfaceBorder }]}>
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const result = await seedTestDay(db, 0);
-                Alert.alert("テストデータ生成完了", `今日: ${result.events}イベント → ${result.stays}滞在を検出`);
+                Alert.alert(t("settings.seedTestDone"), t("settings.seedTestResultToday", { events: result.events, stays: result.stays }));
               } catch (e) {
-                Alert.alert("エラー", String(e));
+                Alert.alert(t("settings.error"), String(e));
               }
             }}
           >
-            <Text style={[styles.menuLabel, { color: t.text }]}>今日のテストデータを生成</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.seedTestToday")}</Text>
           </Pressable>
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={async () => {
               try {
                 const r0 = await seedTestDay(db, 1);
                 const r1 = await seedTestDay(db, 2);
-                Alert.alert("テストデータ生成完了", `昨日: ${r0.events}イベント → ${r0.stays}滞在\n一昨日: ${r1.events}イベント → ${r1.stays}滞在`);
+                Alert.alert(
+                  t("settings.seedTestDone"),
+                  t("settings.seedTestResultPast", {
+                    r0events: r0.events,
+                    r0stays: r0.stays,
+                    r1events: r1.events,
+                    r1stays: r1.stays,
+                  }),
+                );
               } catch (e) {
-                Alert.alert("エラー", String(e));
+                Alert.alert(t("settings.error"), String(e));
               }
             }}
           >
-            <Text style={[styles.menuLabel, { color: t.text }]}>過去2日分のテストデータを生成</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.text }]}>{t("settings.seedTestTwoDays")}</Text>
           </Pressable>
-          <View style={[styles.divider, { backgroundColor: t.surfaceBorder }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.surfaceBorder }]} />
           <Pressable
             style={styles.menuRow}
             onPress={() =>
-              Alert.alert("全データを削除", "RawEvent・Stay・日記をすべて削除します。", [
-                { text: "キャンセル", style: "cancel" },
+              Alert.alert(t("settings.deleteAllTitle"), t("settings.deleteAllConfirmMsg"), [
+                { text: t("settings.cancel"), style: "cancel" },
                 {
-                  text: "削除",
+                  text: t("settings.delete"),
                   style: "destructive",
                   onPress: async () => {
                     await clearAllData(db);
-                    Alert.alert("完了", "全データを削除しました");
+                    Alert.alert(t("settings.deleteAllDone"), t("settings.deleteAllSuccess"));
                   },
                 },
               ])
             }
           >
-            <Text style={[styles.menuLabel, { color: t.danger }]}>全データを削除</Text>
+            <Text style={[styles.menuLabel, { color: themeColors.danger }]}>{t("settings.deleteAll")}</Text>
           </Pressable>
         </View>
       </View>
 
-      <Text style={[styles.version, { color: t.textMuted }]}>TraceNote v0.1.0</Text>
+      <Text style={[styles.version, { color: themeColors.textMuted }]}>TraceNote v0.1.0</Text>
     </ScrollView>
   );
 }

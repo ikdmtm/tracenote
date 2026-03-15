@@ -39,7 +39,7 @@ export async function getStayById(
 export async function updateStay(
   db: SQLiteDatabase,
   id: number,
-  fields: Partial<Pick<Stay, "activity" | "user_place_name" | "needs_review" | "place_json" | "confidence">>,
+  fields: Partial<Pick<Stay, "activity" | "user_place_name" | "needs_review" | "place_json" | "confidence" | "memo">>,
 ): Promise<void> {
   const sets: string[] = [];
   const values: (string | number | null)[] = [];
@@ -63,6 +63,10 @@ export async function updateStay(
   if (fields.confidence !== undefined) {
     sets.push("confidence = ?");
     values.push(fields.confidence);
+  }
+  if (fields.memo !== undefined) {
+    sets.push("memo = ?");
+    values.push(fields.memo);
   }
 
   if (sets.length === 0) return;

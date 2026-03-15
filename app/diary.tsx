@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -14,13 +15,12 @@ import {
 import type { Stay, StayPhoto } from "@/core/domain/models";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
-import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { getActivityLabel } from "@/core/engine/activityInference";
+import { getCategoryLabel } from "@/core/places/categories";
 
-function formatDate(dayKey: string): string {
+function formatDate(dayKey: string, weekdays: string[]): string {
   const [y, m, d] = dayKey.split("-");
   const date = new Date(Number(y), Number(m) - 1, Number(d));
-  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   return `${Number(m)}月${Number(d)}日（${weekdays[date.getDay()]}）`;
 }
 
@@ -37,18 +37,18 @@ function durationLabel(startTs: number, endTs: number): string {
   return m > 0 ? `${h}時間${m}分` : `${h}時間`;
 }
 
-function resolvePlaceName(stay: Stay): string {
+function resolvePlaceName(stay: Stay, t: (key: string) => string): string {
   if (stay.user_place_name) return stay.user_place_name;
   if (stay.place_json) {
     try {
       const parsed = JSON.parse(stay.place_json);
       if (parsed.top?.name) return parsed.top.name;
       if (parsed.top?.category && parsed.top.category !== "other") {
-        return CATEGORY_LABELS[parsed.top.category as PlaceCategory] ?? parsed.top.category;
+        return getCategoryLabel(parsed.top.category) ?? parsed.top.category;
       }
     } catch {}
   }
-  return `滞在地点`;
+  return t("stayCard.stayAt");
 }
 
 const ACTIVITY_ICON: Record<string, string> = {
@@ -66,9 +66,11 @@ const ACTIVITY_ICON: Record<string, string> = {
 type StayWithPhotos = Stay & { photos: StayPhoto[] };
 
 export default function DiaryScreen() {
+  const { t } = useTranslation();
   const { dayKey } = useLocalSearchParams<{ dayKey: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
+  const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
 
   const [staysWithPhotos, setStaysWithPhotos] = useState<StayWithPhotos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function DiaryScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>読み込み中...</Text>
+        <Text style={styles.loadingText}>{t("diary.loading")}</Text>
       </View>
     );
   }
@@ -115,15 +117,15 @@ export default function DiaryScreen() {
     <>
       <Stack.Screen
         options={{
-          title: dayKey ? formatDate(dayKey) : "サマリー",
-          headerBackTitle: "戻る",
+          title: dayKey ? formatDate(dayKey, weekdays) : t("diary.summary"),
+          headerBackTitle: t("diary.back"),
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {staysWithPhotos.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyText}>この日の滞在データはありません</Text>
+            <Text style={styles.emptyText}>{t("diary.noData")}</Text>
           </View>
         ) : (
           <>
@@ -131,29 +133,27 @@ export default function DiaryScreen() {
             <View style={styles.statsCard}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{staysWithPhotos.length}</Text>
-                <Text style={styles.statLabel}>滞在</Text>
+                <Text style={styles.statLabel}>{t("diary.stays")}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
                   {totalHours > 0 ? `${totalHours}h${totalMins > 0 ? totalMins : ""}` : `${totalMins}m`}
                 </Text>
-                <Text style={styles.statLabel}>合計時間</Text>
+                <Text style={styles.statLabel}>{t("diary.totalTime")}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totalPhotos}</Text>
-                <Text style={styles.statLabel}>写真</Text>
+                <Text style={styles.statLabel}>{t("diary.photos")}</Text>
               </View>
             </View>
 
             {/* Timeline */}
             {staysWithPhotos.map((stay, index) => {
               const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
-              const placeName = resolvePlaceName(stay);
-              const actLabel = stay.activity
-                ? (ACTIVITY_LABELS[stay.activity as Activity] ?? stay.activity)
-                : null;
+              const placeName = resolvePlaceName(stay, t);
+              const actLabel = stay.activity ? getActivityLabel(stay.activity) : null;
 
               return (
                 <View key={stay.id}>
@@ -190,7 +190,7 @@ export default function DiaryScreen() {
                       </View>
                       {stay.needs_review && (
                         <View style={styles.reviewBadge}>
-                          <Text style={styles.reviewText}>要確認</Text>
+                          <Text style={styles.reviewText}>{t("diary.needsReview")}</Text>
                         </View>
                       )}
                     </View>
@@ -225,7 +225,7 @@ export default function DiaryScreen() {
               onPress={() => router.push({ pathname: "/share", params: { dayKey } })}
             >
               <Ionicons name="share-outline" size={18} color="#ffffff" />
-              <Text style={styles.shareBtnText}>シェアする</Text>
+              <Text style={styles.shareBtnText}>{t("diary.share")}</Text>
             </Pressable>
           </>
         )}

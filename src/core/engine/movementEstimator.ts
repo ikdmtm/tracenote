@@ -1,7 +1,12 @@
+import i18n from "@/i18n";
 import type { Stay } from "@/core/domain/models";
 import { distanceM } from "@/core/engine/geo";
 
 export type MovementMode = "walk" | "bicycle" | "train" | "car" | "airplane" | "unknown";
+
+export function getMovementLabel(m: MovementMode): string {
+  return i18n.t(`movement.${m}`, { defaultValue: m });
+}
 
 export type Movement = {
   from_stay_id: number;

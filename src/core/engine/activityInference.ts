@@ -1,7 +1,12 @@
+import i18n from "@/i18n";
 import type { PlaceCategory } from "@/core/places/categories";
 import { NEEDS_REVIEW } from "@/core/constants";
 
 export type Activity = "home" | "meal" | "workout" | "work" | "commute" | "rest" | "shopping" | "outing" | "other";
+
+export function getActivityLabel(a: string): string {
+  return i18n.t(`activity.${a}`, { defaultValue: a });
+}
 
 export const ACTIVITY_LABELS: Record<Activity, string> = {
   home: "自宅",

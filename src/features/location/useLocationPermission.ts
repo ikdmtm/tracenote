@@ -2,6 +2,8 @@ import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Linking, Platform } from "react-native";
 
+import i18n from "@/i18n";
+
 export type PermissionState = "undetermined" | "foreground" | "always" | "denied";
 
 export function useLocationPermission() {
@@ -51,10 +53,10 @@ export function useLocationPermission() {
     } catch (e) {
       console.warn("[Permission] Request failed:", e);
       Alert.alert(
-        "位置情報の許可に失敗しました",
+        i18n.t("permAlert.locationRequestFailedTitle"),
         Platform.select({
-          ios: "開発ビルド（Dev Client）では位置情報が利用できます。Expo Goでは制限がある場合があります。",
-          default: "位置情報のパーミッションリクエストに失敗しました。",
+          ios: i18n.t("permAlert.locationRequestFailedIos"),
+          default: i18n.t("permAlert.locationRequestFailedDefault"),
         }),
       );
       setStatus("denied");
@@ -64,11 +66,11 @@ export function useLocationPermission() {
 
   const openSettings = useCallback(() => {
     Alert.alert(
-      "位置情報の許可が必要です",
-      "設定アプリで「常に許可」に変更してください。",
+      i18n.t("permAlert.locationTitle"),
+      i18n.t("permAlert.locationMsg"),
       [
-        { text: "キャンセル", style: "cancel" },
-        { text: "設定を開く", onPress: () => Linking.openSettings() },
+        { text: i18n.t("permAlert.cancel"), style: "cancel" },
+        { text: i18n.t("permAlert.openSettings"), onPress: () => Linking.openSettings() },
       ],
     );
   }, []);

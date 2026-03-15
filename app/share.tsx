@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter, Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 import * as Sharing from "expo-sharing";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,18 +40,19 @@ function parseDayKey(dayKey: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function formatTitle(date: Date): string {
-  const wd = ["日", "月", "火", "水", "木", "金", "土"];
-  return `${date.getMonth() + 1}月${date.getDate()}日（${wd[date.getDay()]}）`;
+function formatTitle(date: Date, weekdays: string[]): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日（${weekdays[date.getDay()]}）`;
 }
 
 export default function ShareScreen() {
+  const { t } = useTranslation();
   const { dayKey } = useLocalSearchParams<{ dayKey: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
   const navigation = useNavigation();
   const { isPro } = useSubscription();
   const { theme } = useTheme();
+  const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
 
   useEffect(() => {
     const unsub = navigation.addListener("beforeRemove", () => {
@@ -123,21 +125,21 @@ export default function ShareScreen() {
       });
       const available = await Sharing.isAvailableAsync();
       if (!available) {
-        Alert.alert("共有できません", "この端末では共有機能が利用できません。");
+        Alert.alert(t("share.shareUnavailable"), t("share.shareUnavailableMsg"));
         return;
       }
       await Sharing.shareAsync(uri, {
         mimeType: "image/png",
-        dialogTitle: `TraceNote - ${formatTitle(date)}`,
+        dialogTitle: `TraceNote - ${formatTitle(date, weekdays)}`,
       });
     } catch (e: any) {
       if (e?.message?.includes("User did not share")) return;
       console.warn("[Share] Error:", e);
-      Alert.alert("エラー", "画像の生成に失敗しました");
+      Alert.alert(t("share.error"), t("share.errorMsg"));
     } finally {
       setSharing(false);
     }
-  }, [currentPage, date]);
+  }, [currentPage, date, weekdays, t]);
 
   const closeBtn = useCallback(
     () => (
@@ -151,7 +153,7 @@ export default function ShareScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
+        <Stack.Screen options={{ title: t("share.title"), headerBackTitle: t("share.back"), headerRight: closeBtn }} />
         <View style={[styles.center, { backgroundColor: theme.bg }]}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
@@ -162,10 +164,10 @@ export default function ShareScreen() {
   if (pages.length === 0) {
     return (
       <>
-        <Stack.Screen options={{ title: "共有", headerBackTitle: "戻る", headerRight: closeBtn }} />
+        <Stack.Screen options={{ title: t("share.title"), headerBackTitle: t("share.back"), headerRight: closeBtn }} />
         <View style={[styles.center, { backgroundColor: theme.bg }]}>
           <Ionicons name="calendar-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>この日の共有できる滞在データがありません</Text>
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t("share.noData")}</Text>
         </View>
       </>
     );
@@ -181,8 +183,8 @@ export default function ShareScreen() {
     <>
       <Stack.Screen
         options={{
-          title: `${formatTitle(date)}のシェア`,
-          headerBackTitle: "戻る",
+          title: `${formatTitle(date, weekdays)}のシェア`,
+          headerBackTitle: t("share.back"),
           headerRight: closeBtn,
         }}
       />
@@ -190,7 +192,7 @@ export default function ShareScreen() {
         <Text style={[styles.hint, { color: theme.textSecondary }]}>
           {pages.length > 1
             ? `${pages.length}ページ — 左右にスワイプ`
-            : "プレビュー"}
+            : t("share.preview")}
         </Text>
 
         {/* Page pager */}
@@ -235,8 +237,8 @@ export default function ShareScreen() {
         )}
 
         <Text style={[styles.note, { color: theme.textMuted }]}>
-          ※ 座標・住所は画像に含まれません{"\n"}
-          自宅は「自宅」とのみ表示されます
+          ※ {t("share.privacyNote")}{"\n"}
+          {t("share.homeNote")}
         </Text>
 
         <Pressable
@@ -251,8 +253,8 @@ export default function ShareScreen() {
               <Ionicons name="share-outline" size={18} color={theme.textOnPrimary} />
               <Text style={[styles.shareBtnText, { color: theme.textOnPrimary }]}>
                 {pages.length > 1
-                  ? `ページ ${currentPage + 1} をシェア`
-                  : "シェアする"}
+                  ? t("share.sharePage", { page: currentPage + 1 })
+                  : t("share.shareBtn")}
               </Text>
             </>
           )}

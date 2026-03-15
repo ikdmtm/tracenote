@@ -34,8 +34,8 @@ export async function runStayDetection(
 
   for (const stay of detected) {
     await db.runAsync(
-      `INSERT INTO stays (start_ts, end_ts, lat, lng, radius_m, confidence, needs_review)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO stays (start_ts, end_ts, lat, lng, radius_m, confidence, needs_review, memo)
+       VALUES (?, ?, ?, ?, ?, ?, 0, NULL)`,
       [stay.start_ts, stay.end_ts, stay.lat, stay.lng, stay.radius_m, stay.confidence],
     );
   }

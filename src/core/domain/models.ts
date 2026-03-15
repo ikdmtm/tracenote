@@ -19,6 +19,7 @@ export type Stay = {
   confidence: number;
   needs_review: boolean;
   user_place_name: string | null;
+  memo: string | null;
 };
 
 export type DiaryEntry = {

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FlatList,
   Pressable,
@@ -15,7 +16,7 @@ import type { RawEvent, Stay } from "@/core/domain/models";
 import { getRawEventsByDay } from "@/core/storage/rawEventRepo";
 import { AdBanner } from "@/features/monetization/AdBanner";
 import { getStaysByDay } from "@/core/storage/stayRepo";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { getCategoryLabel, type PlaceCategory } from "@/core/places/categories";
 import { CalendarPicker } from "@/features/ui/CalendarPicker";
 import { useTheme } from "@/features/theme/ThemeContext";
 
@@ -23,8 +24,7 @@ function dayKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDisplayDate(d: Date): string {
-  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+function formatDisplayDate(d: Date, weekdays: string[]): string {
   return `${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`;
 }
 
@@ -50,18 +50,18 @@ function formatCoord(n: number): string {
   return n.toFixed(4);
 }
 
-function resolveStayName(stay: Stay): string {
+function resolveStayName(stay: Stay, fallback: string): string {
   if (stay.user_place_name) return stay.user_place_name;
   if (stay.place_json) {
     try {
       const parsed = JSON.parse(stay.place_json);
       if (parsed.top?.name) return parsed.top.name;
       if (parsed.top?.category && parsed.top.category !== "other") {
-        return CATEGORY_LABELS[parsed.top.category as PlaceCategory] ?? parsed.top.category;
+        return getCategoryLabel(parsed.top.category as PlaceCategory);
       }
     } catch {}
   }
-  return "滞在地点";
+  return fallback;
 }
 
 type AnnotatedEvent = RawEvent & {
@@ -69,13 +69,13 @@ type AnnotatedEvent = RawEvent & {
   isMoving: boolean;
 };
 
-function annotateEvents(events: RawEvent[], stays: Stay[]): AnnotatedEvent[] {
+function annotateEvents(events: RawEvent[], stays: Stay[], stayFallback: string): AnnotatedEvent[] {
   return events.map((ev) => {
     const matchedStay = stays.find(
       (s) => ev.ts >= s.start_ts && ev.ts <= s.end_ts,
     );
     if (matchedStay) {
-      return { ...ev, stayName: resolveStayName(matchedStay), isMoving: false };
+      return { ...ev, stayName: resolveStayName(matchedStay, stayFallback), isMoving: false };
     }
     return { ...ev, stayName: null, isMoving: true };
   });
@@ -87,7 +87,9 @@ function hourLabel(ts: number): string {
 
 export default function TimelineScreen() {
   const db = useSQLiteContext();
+  const { t: tKey, i18n } = useTranslation();
   const { theme: t } = useTheme();
+  const weekdays = tKey("calendar.weekdays", { returnObjects: true }) as string[];
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
@@ -126,7 +128,10 @@ export default function TimelineScreen() {
     setRefreshing(false);
   }, [loadData, currentDate]);
 
-  const annotated = useMemo(() => annotateEvents(events, stays), [events, stays]);
+  const annotated = useMemo(
+    () => annotateEvents(events, stays, tKey("stayCard.stayAt")),
+    [events, stays, tKey, i18n.language],
+  );
 
   const isTodayView = isToday(currentDate);
 
@@ -149,7 +154,7 @@ export default function TimelineScreen() {
             {item.stayName ? (
               <Text style={[styles.eventPlace, { color: t.text }]} numberOfLines={1}>{item.stayName}</Text>
             ) : (
-              <Text style={[styles.eventMoving, { color: t.warning }]}>移動中</Text>
+              <Text style={[styles.eventMoving, { color: t.warning }]}>{tKey("timeline.moving")}</Text>
             )}
             <Text style={[styles.eventCoord, { color: t.textMuted }]}>
               {formatCoord(item.lat)}, {formatCoord(item.lng)}
@@ -172,8 +177,8 @@ export default function TimelineScreen() {
           <Ionicons name="chevron-back" size={20} color={t.primary} />
         </Pressable>
         <Pressable onPress={() => setCalendarOpen(true)} style={styles.dateCenter}>
-          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate)}</Text>
-          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>今日</Text>}
+          <Text style={[styles.dateText, { color: t.text }]}>{formatDisplayDate(currentDate, weekdays)}</Text>
+          {isTodayView && <Text style={[styles.todayBadge, { color: t.primary }]}>{tKey("timeline.today")}</Text>}
         </Pressable>
         <Pressable
           onPress={goToNextDay}
@@ -193,14 +198,14 @@ export default function TimelineScreen() {
 
       <View style={[styles.summaryBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
         <Text style={[styles.summaryText, { color: t.textMuted }]}>
-          {events.length}件の記録 · {stays.length}件の滞在を検出
+          {tKey("timeline.summary", { events: events.length, stays: stays.length })}
         </Text>
       </View>
 
       {events.length === 0 ? (
         <View style={styles.placeholder}>
           <Ionicons name="pulse-outline" size={40} color={t.textMuted} />
-          <Text style={[styles.placeholderText, { color: t.textMuted }]}>この日の記録はありません</Text>
+          <Text style={[styles.placeholderText, { color: t.textMuted }]}>{tKey("timeline.emptyNoData")}</Text>
         </View>
       ) : (
         <FlatList

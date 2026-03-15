@@ -2,9 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import i18n from "@/i18n";
+import { useTranslation } from "react-i18next";
 import type { Stay, StayPhoto } from "@/core/domain/models";
-import { ACTIVITY_LABELS, type Activity } from "@/core/engine/activityInference";
-import { CATEGORY_LABELS, type PlaceCategory } from "@/core/places/categories";
+import { getActivityLabel } from "@/core/engine/activityInference";
+import { getCategoryLabel, type PlaceCategory } from "@/core/places/categories";
 import { useTheme } from "@/features/theme/ThemeContext";
 
 function formatTime(ts: number): string {
@@ -46,14 +48,9 @@ function resolveDisplayName(stay: Stay): string {
   if (name) return name;
 
   const { category } = parsePlaceJson(stay.place_json);
-  if (category && category !== "other") return CATEGORY_LABELS[category];
+  if (category && category !== "other") return getCategoryLabel(category);
 
-  return `滞在地点 (${stay.lat.toFixed(4)}, ${stay.lng.toFixed(4)})`;
-}
-
-function activityLabel(activity: string | null): string | null {
-  if (!activity) return null;
-  return ACTIVITY_LABELS[activity as Activity] ?? activity;
+  return `${i18n.t("stayCard.stayAt")} (${stay.lat.toFixed(4)}, ${stay.lng.toFixed(4)})`;
 }
 
 const ACTIVITY_ICON: Record<string, string> = {
@@ -76,45 +73,46 @@ type StayCardProps = {
 };
 
 export function StayCard({ stay, photos }: StayCardProps) {
+  const { t } = useTranslation();
   const router = useRouter();
-  const { theme: t } = useTheme();
+  const { theme: themeColors } = useTheme();
   const displayName = resolveDisplayName(stay);
-  const label = activityLabel(stay.activity);
+  const label = stay.activity ? getActivityLabel(stay.activity) : null;
   const icon = ACTIVITY_ICON[stay.activity ?? ""] ?? "location-outline";
   const thumbs = (photos ?? []).slice(0, MAX_THUMBNAILS);
   const extraCount = (photos?.length ?? 0) - MAX_THUMBNAILS;
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: t.surface }]}
+      style={[styles.card, { backgroundColor: themeColors.surface }]}
       onPress={() => router.push({ pathname: "/stay-detail", params: { id: String(stay.id) } })}
     >
       <View style={styles.timeColumn}>
-        <Text style={[styles.timeText, { color: t.textSecondary }]}>{formatTime(stay.start_ts)}</Text>
-        <View style={[styles.timeLine, { backgroundColor: t.surfaceBorder }]} />
-        <Text style={[styles.timeText, { color: t.textSecondary }]}>{formatTime(stay.end_ts)}</Text>
+        <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>{formatTime(stay.start_ts)}</Text>
+        <View style={[styles.timeLine, { backgroundColor: themeColors.surfaceBorder }]} />
+        <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>{formatTime(stay.end_ts)}</Text>
       </View>
 
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <Ionicons name={icon as any} size={16} color={t.textSecondary} style={{ marginRight: 4 }} />
-          <Text style={[styles.placeName, { color: t.text }]} numberOfLines={1}>
+          <Ionicons name={icon as any} size={16} color={themeColors.textSecondary} style={{ marginRight: 4 }} />
+          <Text style={[styles.placeName, { color: themeColors.text }]} numberOfLines={1}>
             {displayName}
           </Text>
           {stay.needs_review && (
             <View style={[styles.reviewBadge, { backgroundColor: "#fef3c7" }]}>
-              <Text style={styles.reviewText}>要確認</Text>
+              <Text style={styles.reviewText}>{t("stayCard.needsReview")}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.subRow}>
           {label && (
-            <Text style={[styles.activityChip, { color: t.primary, backgroundColor: t.primaryLight }]}>
+            <Text style={[styles.activityChip, { color: themeColors.primary, backgroundColor: themeColors.primaryLight }]}>
               {label}
             </Text>
           )}
-          <Text style={[styles.duration, { color: t.textSecondary }]}>
+          <Text style={[styles.duration, { color: themeColors.textSecondary }]}>
             {durationLabel(stay.start_ts, stay.end_ts)}
           </Text>
         </View>
@@ -123,16 +121,16 @@ export function StayCard({ stay, photos }: StayCardProps) {
           <View style={styles.photoRow}>
             {thumbs.map((p) => (
               p.uri && !p.uri.startsWith("ph://") ? (
-                <Image key={p.id} source={{ uri: p.uri }} style={[styles.thumbnail, { backgroundColor: t.divider }]} />
+                <Image key={p.id} source={{ uri: p.uri }} style={[styles.thumbnail, { backgroundColor: themeColors.divider }]} />
               ) : (
-                <View key={p.id} style={[styles.thumbnail, styles.photoFallback, { backgroundColor: t.divider }]}>
-                  <Ionicons name="image-outline" size={18} color={t.textMuted} />
+                <View key={p.id} style={[styles.thumbnail, styles.photoFallback, { backgroundColor: themeColors.divider }]}>
+                  <Ionicons name="image-outline" size={18} color={themeColors.textMuted} />
                 </View>
               )
             ))}
             {extraCount > 0 && (
-              <View style={[styles.extraBadge, { backgroundColor: t.divider }]}>
-                <Text style={[styles.extraText, { color: t.textSecondary }]}>+{extraCount}</Text>
+              <View style={[styles.extraBadge, { backgroundColor: themeColors.divider }]}>
+                <Text style={[styles.extraText, { color: themeColors.textSecondary }]}>+{extraCount}</Text>
               </View>
             )}
           </View>
@@ -141,9 +139,9 @@ export function StayCard({ stay, photos }: StayCardProps) {
         <View style={styles.footer}>
           <View style={styles.confRow}>
             <View style={[styles.confDot, { backgroundColor: confidenceColor(stay.confidence) }]} />
-            <Text style={[styles.confText, { color: t.textMuted }]}>{Math.round(stay.confidence * 100)}%</Text>
+            <Text style={[styles.confText, { color: themeColors.textMuted }]}>{Math.round(stay.confidence * 100)}%</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={themeColors.textMuted} />
         </View>
       </View>
     </Pressable>
