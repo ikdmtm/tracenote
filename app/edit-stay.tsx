@@ -294,7 +294,13 @@ export default function EditStayScreen() {
             <View style={styles.photoGrid}>
               {photos.map((p) => (
                 <View key={p.id} style={styles.photoItem}>
-                  <Image source={{ uri: p.uri }} style={styles.photoImage} />
+                  {p.uri && !p.uri.startsWith("ph://") ? (
+                    <Image source={{ uri: p.uri }} style={styles.photoImage} />
+                  ) : (
+                    <View style={[styles.photoImage, { justifyContent: "center", alignItems: "center" }]}>
+                      <Ionicons name="image-outline" size={24} color="#94a3b8" />
+                    </View>
+                  )}
                   <Pressable
                     style={styles.photoRemoveBtn}
                     onPress={() => handleRemovePhoto(p.id)}

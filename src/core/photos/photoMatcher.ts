@@ -54,20 +54,22 @@ export async function matchPhotosForStay(
     if (takenAt < fromTime || takenAt > toTime) continue;
 
     let score = 1;
+    let displayUri = asset.uri;
 
-    // Fetch extended info to check GPS location
+    // Fetch extended info to check GPS location and get localUri
     try {
       const info = await MediaLibrary.getAssetInfoAsync(asset.id);
+      if (info.localUri) {
+        displayUri = info.localUri;
+      }
       if (info.location) {
         const dist = haversineM(stay.lat, stay.lng, info.location.latitude, info.location.longitude);
         if (dist <= GPS_RADIUS_M) {
           score = 2 + (1 - dist / GPS_RADIUS_M);
         } else {
-          // GPS available but too far → skip
           continue;
         }
       }
-      // No GPS → match by time only (score stays 1)
     } catch {
       // getAssetInfoAsync failed → match by time only
     }
@@ -75,7 +77,7 @@ export async function matchPhotosForStay(
     matches.push({
       stay_id: stay.id,
       asset_id: asset.id,
-      uri: asset.uri,
+      uri: displayUri,
       width: asset.width,
       height: asset.height,
       taken_at: takenAt,

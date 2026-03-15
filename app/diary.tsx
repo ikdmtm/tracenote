@@ -204,7 +204,13 @@ export default function DiaryScreen() {
                         contentContainerStyle={styles.photoScrollContent}
                       >
                         {stay.photos.map((p) => (
-                          <Image key={p.id} source={{ uri: p.uri }} style={styles.photo} />
+                          p.uri && !p.uri.startsWith("ph://") ? (
+                            <Image key={p.id} source={{ uri: p.uri }} style={styles.photo} />
+                          ) : (
+                            <View key={p.id} style={[styles.photo, styles.photoFallback]}>
+                              <Ionicons name="image-outline" size={24} color="#94a3b8" />
+                            </View>
+                          )
                         ))}
                       </ScrollView>
                     )}
@@ -375,6 +381,10 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     backgroundColor: "#f1f5f9",
+  },
+  photoFallback: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   shareBtn: {
     flexDirection: "row",

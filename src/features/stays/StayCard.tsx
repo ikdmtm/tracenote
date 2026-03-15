@@ -116,11 +116,17 @@ export function StayCard({ stay, photos }: StayCardProps) {
         {thumbs.length > 0 && (
           <View style={styles.photoRow}>
             {thumbs.map((p) => (
-              <Image
-                key={p.id}
-                source={{ uri: p.uri }}
-                style={styles.thumbnail}
-              />
+              p.uri && !p.uri.startsWith("ph://") ? (
+                <Image
+                  key={p.id}
+                  source={{ uri: p.uri }}
+                  style={styles.thumbnail}
+                />
+              ) : (
+                <View key={p.id} style={[styles.thumbnail, styles.photoFallback]}>
+                  <Ionicons name="image-outline" size={18} color="#94a3b8" />
+                </View>
+              )
             ))}
             {extraCount > 0 && (
               <View style={styles.extraBadge}>
@@ -235,6 +241,10 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 6,
     backgroundColor: "#f1f5f9",
+  },
+  photoFallback: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   extraBadge: {
     width: 44,
