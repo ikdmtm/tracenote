@@ -7,7 +7,7 @@ import {
   type MovementMode,
 } from "@/core/engine/movementEstimator";
 
-const MODES: MovementMode[] = ["walk", "bicycle", "vehicle", "unknown"];
+const MODES: MovementMode[] = ["walk", "bicycle", "train", "car", "unknown"];
 
 type Props = {
   visible: boolean;

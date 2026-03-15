@@ -15,7 +15,7 @@ import type { Stay, StayPhoto, MovementRow } from "@/core/domain/models";
 import { getRawEventCount } from "@/core/storage/rawEventRepo";
 import { getStaysByDay } from "@/core/storage/stayRepo";
 import { getPhotosByStayId } from "@/core/storage/stayPhotoRepo";
-import { getMovementsByDay, updateMovementUserMode } from "@/core/storage/movementRepo";
+import { getMovementsByDay, updateMovementUserMode, upsertMovements } from "@/core/storage/movementRepo";
 import {
   startBackgroundLocation,
 } from "@/core/location/backgroundTask";
@@ -219,8 +219,28 @@ export default function HomeScreen() {
   const totalPhotos = Object.values(photoMap).reduce((s, arr) => s + arr.length, 0);
 
   const handleMovementModeChange = useCallback(async (mode: MovementMode) => {
-    if (!editingMovement?.dbId) return;
-    await updateMovementUserMode(db, editingMovement.dbId, mode);
+    if (!editingMovement) return;
+    if (editingMovement.dbId) {
+      await updateMovementUserMode(db, editingMovement.dbId, mode);
+    } else {
+      await upsertMovements(db, [{
+        from_stay_id: editingMovement.from_stay_id,
+        to_stay_id: editingMovement.to_stay_id,
+        start_ts: editingMovement.start_ts,
+        end_ts: editingMovement.end_ts,
+        distance_m: editingMovement.distance_m,
+        duration_min: editingMovement.duration_min,
+        avg_speed_kmh: editingMovement.avg_speed_kmh,
+        mode: editingMovement.mode,
+      }]);
+      const dayStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime();
+      const dayEnd = dayStart + 24 * 60 * 60_000;
+      const rows = await getMovementsByDay(db, dayStart, dayEnd);
+      const row = rows.find(
+        (r) => r.from_stay_id === editingMovement.from_stay_id && r.to_stay_id === editingMovement.to_stay_id,
+      );
+      if (row) await updateMovementUserMode(db, row.id, mode);
+    }
     await refreshData(currentDate);
     setEditingMovement(null);
   }, [db, editingMovement, refreshData, currentDate]);
