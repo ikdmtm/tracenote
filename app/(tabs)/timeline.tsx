@@ -1,15 +1,22 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
+  Pressable,
   RefreshControl,
+  SectionList,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import type { RawEvent } from "@/core/domain/models";
+import type { RawEvent, Stay } from "@/core/domain/models";
 import { getLatestRawEvents } from "@/core/storage/rawEventRepo";
+import { getTodayStays } from "@/core/storage/stayRepo";
+import { StayCard } from "@/features/stays/StayCard";
+
+type ViewMode = "stays" | "raw";
 
 function formatTs(ts: number): string {
   const d = new Date(ts);
@@ -17,18 +24,18 @@ function formatTs(ts: number): string {
   return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function EventRow({ item }: { item: RawEvent }) {
+function RawEventRow({ item }: { item: RawEvent }) {
   return (
-    <View style={styles.row}>
-      <View style={styles.rowLeft}>
-        <Text style={styles.rowTime}>{formatTs(item.ts)}</Text>
-        <Text style={styles.rowCoord}>
+    <View style={styles.rawRow}>
+      <View style={styles.rawLeft}>
+        <Text style={styles.rawTime}>{formatTs(item.ts)}</Text>
+        <Text style={styles.rawCoord}>
           {item.lat.toFixed(5)}, {item.lng.toFixed(5)}
         </Text>
       </View>
-      <View style={styles.rowRight}>
-        <Text style={styles.rowAcc}>±{Math.round(item.acc)}m</Text>
-        <Text style={styles.rowSource}>{item.source}</Text>
+      <View style={styles.rawRight}>
+        <Text style={styles.rawAcc}>±{Math.round(item.acc)}m</Text>
+        <Text style={styles.rawSource}>{item.source}</Text>
       </View>
     </View>
   );
@@ -38,43 +45,90 @@ const PAGE_SIZE = 100;
 
 export default function TimelineScreen() {
   const db = useSQLiteContext();
+  const [mode, setMode] = useState<ViewMode>("stays");
+  const [stays, setStays] = useState<Stay[]>([]);
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadEvents = useCallback(async () => {
-    const rows = await getLatestRawEvents(db, PAGE_SIZE);
-    setEvents(rows);
+  const loadData = useCallback(async () => {
+    const [s, e] = await Promise.all([
+      getTodayStays(db),
+      getLatestRawEvents(db, PAGE_SIZE),
+    ]);
+    setStays(s);
+    setEvents(e);
   }, [db]);
 
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    loadData();
+  }, [loadData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadEvents();
+    await loadData();
     setRefreshing(false);
-  }, [loadEvents]);
+  }, [loadData]);
 
   return (
     <View style={styles.container}>
-      {events.length === 0 ? (
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[styles.toggleBtn, mode === "stays" && styles.toggleActive]}
+          onPress={() => setMode("stays")}
+        >
+          <Text style={[styles.toggleText, mode === "stays" && styles.toggleTextActive]}>
+            滞在
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleBtn, mode === "raw" && styles.toggleActive]}
+          onPress={() => setMode("raw")}
+        >
+          <Text style={[styles.toggleText, mode === "raw" && styles.toggleTextActive]}>
+            Raw Events
+          </Text>
+        </Pressable>
+      </View>
+
+      {mode === "stays" ? (
+        stays.length === 0 ? (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>
+              検出された滞在がまだありません
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={stays}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <View style={styles.stayCardWrapper}>
+                <StayCard stay={item} />
+              </View>
+            )}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        )
+      ) : events.length === 0 ? (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>
-            位置情報イベントがまだありません{"\n"}
-            バックグラウンドで収集が始まると{"\n"}ここに表示されます
+            位置情報イベントがまだありません
           </Text>
         </View>
       ) : (
         <FlatList
           data={events}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <EventRow item={item} />}
+          renderItem={({ item }) => <RawEventRow item={item} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          contentContainerStyle={styles.list}
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -85,6 +139,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginVertical: 12,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 10,
+    padding: 3,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  toggleActive: {
+    backgroundColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#64748b",
+  },
+  toggleTextActive: {
+    color: "#0f172a",
+    fontWeight: "600",
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  stayCardWrapper: {
+    marginBottom: 0,
   },
   placeholder: {
     flex: 1,
@@ -97,41 +189,39 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
   },
-  list: {
-    paddingVertical: 8,
-  },
-  row: {
+  rawRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 10,
-    paddingHorizontal: 16,
     backgroundColor: "#ffffff",
+    paddingHorizontal: 0,
+    borderRadius: 0,
   },
-  rowLeft: {
+  rawLeft: {
     flex: 1,
   },
-  rowTime: {
+  rawTime: {
     fontSize: 14,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
     color: "#0f172a",
   },
-  rowCoord: {
+  rawCoord: {
     fontSize: 12,
     fontVariant: ["tabular-nums"],
     color: "#64748b",
     marginTop: 2,
   },
-  rowRight: {
+  rawRight: {
     alignItems: "flex-end",
   },
-  rowAcc: {
+  rawAcc: {
     fontSize: 13,
     fontVariant: ["tabular-nums"],
     color: "#0f172a",
   },
-  rowSource: {
+  rawSource: {
     fontSize: 11,
     color: "#94a3b8",
     marginTop: 2,
@@ -139,6 +229,5 @@ const styles = StyleSheet.create({
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#e2e8f0",
-    marginLeft: 16,
   },
 });

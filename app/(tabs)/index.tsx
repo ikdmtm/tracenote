@@ -1,9 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
+import type { Stay } from "@/core/domain/models";
 import { getRawEventCount } from "@/core/storage/rawEventRepo";
+import { getTodayStays } from "@/core/storage/stayRepo";
+import { runTodayStayDetection } from "@/core/engine/stayService";
 import {
   startBackgroundLocation,
 } from "@/core/location/backgroundTask";
@@ -11,6 +21,7 @@ import {
   useLocationPermission,
   type PermissionState,
 } from "@/features/location/useLocationPermission";
+import { StayCard } from "@/features/stays/StayCard";
 
 function StatusBadge({ status }: { status: PermissionState }) {
   const config: Record<PermissionState, { label: string; color: string; bg: string }> = {
@@ -32,18 +43,26 @@ export default function HomeScreen() {
   const db = useSQLiteContext();
   const { status, loading, requestAlways, openSettings } = useLocationPermission();
   const [eventCount, setEventCount] = useState(0);
+  const [stays, setStays] = useState<Stay[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [bgStarted, setBgStarted] = useState(false);
 
-  const refreshCount = useCallback(async () => {
+  const refreshData = useCallback(async () => {
     const count = await getRawEventCount(db);
     setEventCount(count);
+
+    if (count > 0) {
+      await runTodayStayDetection(db);
+      const todayStays = await getTodayStays(db);
+      setStays(todayStays);
+    }
   }, [db]);
 
   useEffect(() => {
-    refreshCount();
-    const interval = setInterval(refreshCount, 10_000);
+    refreshData();
+    const interval = setInterval(refreshData, 30_000);
     return () => clearInterval(interval);
-  }, [refreshCount]);
+  }, [refreshData]);
 
   useEffect(() => {
     if (status === "always" && !bgStarted) {
@@ -68,6 +87,12 @@ export default function HomeScreen() {
     }
   }, [status, requestAlways, openSettings]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  }, [refreshData]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -88,8 +113,8 @@ export default function HomeScreen() {
         </View>
         {status === "always" && (
           <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>記録イベント数</Text>
-            <Text style={styles.statusValue}>{eventCount}</Text>
+            <Text style={styles.statusLabel}>記録イベント</Text>
+            <Text style={styles.statusValue}>{eventCount}件</Text>
           </View>
         )}
         {status !== "always" && (
@@ -102,19 +127,32 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <View style={styles.placeholder}>
-        {status === "always" ? (
-          <Text style={styles.placeholderText}>
-            バックグラウンドで位置情報を収集中...{"\n"}
-            滞在が検出されるとここにカードが表示されます
-          </Text>
-        ) : (
-          <Text style={styles.placeholderText}>
-            位置情報を「常に許可」すると{"\n"}
-            行動ログの自動記録が始まります
-          </Text>
-        )}
-      </View>
+      {stays.length > 0 ? (
+        <FlatList
+          data={stays}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => <StayCard stay={item} />}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          contentContainerStyle={styles.stayList}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      ) : (
+        <View style={styles.placeholder}>
+          {status === "always" ? (
+            <Text style={styles.placeholderText}>
+              バックグラウンドで位置情報を収集中...{"\n"}
+              滞在が検出されるとここにカードが表示されます
+            </Text>
+          ) : (
+            <Text style={styles.placeholderText}>
+              位置情報を「常に許可」すると{"\n"}
+              行動ログの自動記録が始まります
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -201,6 +239,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  stayList: {
+    paddingBottom: 24,
   },
   placeholder: {
     flex: 1,
